@@ -4,20 +4,36 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Colors } from '@/constants/theme';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { useAuth } from '@/contexts/AuthContext';
 
 export default function PlayerDashboard() {
   const scheme = useColorScheme();
   const colors = Colors[scheme === 'dark' ? 'dark' : 'dark']; // Force dark mode for premium look
   const router = useRouter();
+  const { user, logout } = useAuth();
 
-  // Mock data matching the FE project
-  const competitor = {
-    name: 'Nguyen Hoang Nam',
-    wcaId: '2024NAMH01',
-    qrCode: 'QR-428761', // Matches the default scanned code in FE Page
+  const handleLogout = () => {
+    logout();
+    router.replace('/login');
+  };
+
+  const getInitials = (name: string) => {
+    if (!name) return 'C';
+    const parts = name.trim().split(/\s+/);
+    if (parts.length >= 2) {
+      return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+    }
+    return name.substring(0, 2).toUpperCase();
+  };
+
+  const initials = user ? getInitials(user.displayName) : 'C';
+
+  // Mock stats/details aligned with WCA profile structure
+  const competitorStats = {
     bestTime: '8.42s',
     ao5: '10.56s',
     totalSolves: 124,
+    qrCode: user ? `CN-${user.id.substring(0, 8).toUpperCase()}` : 'QR-428761',
   };
 
   return (
@@ -26,10 +42,10 @@ export default function PlayerDashboard() {
       <SafeAreaView style={styles.safeArea}>
         {/* Header */}
         <View style={[styles.header, { borderBottomColor: colors.border }]}>
-          <TouchableOpacity onPress={() => router.replace('/')} style={styles.backButton}>
-            <MaterialCommunityIcons name="arrow-left" size={24} color={colors.text} />
+          <TouchableOpacity onPress={handleLogout} style={styles.backButton}>
+            <MaterialCommunityIcons name="logout" size={22} color={colors.text} />
           </TouchableOpacity>
-          
+
           <View style={styles.headerLogoRow}>
             <Image
               source={require('@/assets/images/logoCube.png')}
@@ -50,14 +66,19 @@ export default function PlayerDashboard() {
           <View style={[styles.card, { backgroundColor: colors.backgroundElement, borderColor: colors.border }]}>
             <View style={styles.profileRow}>
               <View style={[styles.avatar, { backgroundColor: colors.primary }]}>
-                <Text style={styles.avatarText}>NH</Text>
+                <Text style={styles.avatarText}>{initials}</Text>
               </View>
-              <View>
-                <Text style={[styles.profileName, { color: colors.text }]}>{competitor.name}</Text>
-                <Text style={[styles.wcaId, { color: colors.primary }]}>WCA ID: {competitor.wcaId}</Text>
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.profileName, { color: colors.text }]} numberOfLines={1}>
+                  {user?.displayName || 'Competitor'}
+                </Text>
+                <Text style={[styles.wcaId, { color: colors.primary }]}>
+                  {user?.email || 'competitor@cubenexus.com'}
+                </Text>
               </View>
             </View>
           </View>
+
 
           {/* QR Code Verification Card */}
           <View style={[styles.card, styles.qrCard, { backgroundColor: colors.backgroundElement, borderColor: colors.border }]}>
@@ -72,12 +93,12 @@ export default function PlayerDashboard() {
                 {/* Mock QR Code details */}
                 <MaterialCommunityIcons name="qrcode" size={160} color={colors.text} />
               </View>
-              <Text style={[styles.qrCodeText, { color: colors.text }]}>{competitor.qrCode}</Text>
+              <Text style={[styles.qrCodeText, { color: colors.text }]}>{competitorStats.qrCode}</Text>
             </View>
           </View>
 
           {/* Quick Action Button */}
-          <TouchableOpacity 
+          <TouchableOpacity
             style={[styles.primaryButton, { backgroundColor: colors.primary }]}
             activeOpacity={0.8}
             onPress={() => router.push('/player/timer')}
@@ -95,11 +116,11 @@ export default function PlayerDashboard() {
           <View style={styles.statsGrid}>
             <View style={[styles.statBox, { backgroundColor: colors.backgroundElement, borderColor: colors.border }]}>
               <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Best Time</Text>
-              <Text style={[styles.statValue, { color: colors.success }]}>{competitor.bestTime}</Text>
+              <Text style={[styles.statValue, { color: colors.success }]}>{competitorStats.bestTime}</Text>
             </View>
             <View style={[styles.statBox, { backgroundColor: colors.backgroundElement, borderColor: colors.border }]}>
               <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Avg of 5 (Ao5)</Text>
-              <Text style={[styles.statValue, { color: colors.accent }]}>{competitor.ao5}</Text>
+              <Text style={[styles.statValue, { color: colors.accent }]}>{competitorStats.ao5}</Text>
             </View>
           </View>
 

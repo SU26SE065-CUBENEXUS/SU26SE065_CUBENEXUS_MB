@@ -4,16 +4,23 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Colors } from '@/constants/theme';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { useAuth } from '@/contexts/AuthContext';
 
 export default function JudgeDashboard() {
   const scheme = useColorScheme();
   const colors = Colors[scheme === 'dark' ? 'dark' : 'dark']; // Force dark mode
   const router = useRouter();
+  const { logout } = useAuth();
 
   const [manualQr, setManualQr] = useState('');
   const [station, setStation] = useState('Station 04');
   const [event, setEvent] = useState('3x3x3 Cube - Round 1');
   const [errorMessage, setErrorMessage] = useState('');
+
+  const handleLogout = () => {
+    logout();
+    router.replace('/login');
+  };
 
   // Scanning laser animation
   const laserAnim = useRef(new Animated.Value(0)).current;
@@ -66,9 +73,10 @@ export default function JudgeDashboard() {
       <SafeAreaView style={styles.safeArea}>
         {/* Header */}
         <View style={[styles.header, { borderBottomColor: colors.border }]}>
-          <TouchableOpacity onPress={() => router.replace('/')} style={styles.backButton}>
-            <MaterialCommunityIcons name="arrow-left" size={24} color={colors.text} />
+          <TouchableOpacity onPress={handleLogout} style={styles.backButton}>
+            <MaterialCommunityIcons name="logout" size={22} color={colors.text} />
           </TouchableOpacity>
+
           
           <View style={styles.headerLogoRow}>
             <Image

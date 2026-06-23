@@ -1,14 +1,33 @@
-import React from 'react';
-import { StyleSheet, Text, View, TouchableOpacity, useColorScheme, StatusBar, Image } from 'react-native';
+import React, { useEffect } from 'react';
+import { StyleSheet, Text, View, ActivityIndicator, StatusBar, Image, useColorScheme } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Colors } from '@/constants/theme';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { useAuth } from '@/contexts/AuthContext';
 
-export default function WelcomeScreen() {
+export default function GatekeeperScreen() {
   const scheme = useColorScheme();
   const colors = Colors[scheme === 'dark' ? 'dark' : 'dark']; // Force dark mode for a premium aesthetic
   const router = useRouter();
+  const { user, isAuthenticated, isLoading } = useAuth();
+
+  useEffect(() => {
+    if (!isLoading) {
+      if (!isAuthenticated || !user) {
+        router.replace('/login');
+      } else {
+        const role = user.role.toUpperCase();
+        if (role === 'COMPETITOR') {
+          router.replace('/player');
+        } else if (role === 'JUDGE' || role === 'ADMIN' || role === 'MANAGER') {
+          router.replace('/judge');
+        } else {
+          // If role is invalid, redirect to login
+          router.replace('/login');
+        }
+      }
+    }
+  }, [isLoading, isAuthenticated, user, router]);
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
@@ -21,8 +40,8 @@ export default function WelcomeScreen() {
       </View>
 
       <SafeAreaView style={styles.safeArea}>
-        {/* Header Section aligned with Web FE */}
-        <View style={styles.header}>
+        <View style={styles.content}>
+          {/* Logo container */}
           <View style={[styles.logoContainer, { backgroundColor: colors.background, borderColor: colors.border }]}>
             <Image
               source={require('@/assets/images/logoCube.png')}
@@ -43,60 +62,13 @@ export default function WelcomeScreen() {
             <View style={styles.redDot} />
             <Text style={[styles.sloganText, { color: colors.textSecondary }]}>INSPIRE</Text>
           </View>
-        </View>
 
-        {/* Portal Selection Cards */}
-        <View style={styles.portalsContainer}>
-
-          {/* Competitor Card */}
-          <TouchableOpacity
-            style={[styles.card, { backgroundColor: colors.backgroundElement, borderColor: colors.border }]}
-            activeOpacity={0.8}
-            onPress={() => router.push('/player')}
-          >
-            <View style={styles.cardHeader}>
-              <View style={[styles.iconWrapper, { backgroundColor: 'rgba(255, 90, 54, 0.1)' }]}>
-                <MaterialCommunityIcons name="timer-outline" size={32} color={colors.primary} />
-              </View>
-              <Text style={[styles.cardTitle, { color: colors.text }]}>Competitor Portal</Text>
-            </View>
-            <Text style={[styles.cardDescription, { color: colors.textSecondary }]}>
-              Show your competitor QR code to judges, practice with the integrated Rubik's cube timer, and track your session statistics.
+          <View style={styles.loaderContainer}>
+            <ActivityIndicator size="large" color={colors.primary} />
+            <Text style={[styles.loadingText, { color: colors.textSecondary }]}>
+              Initializing Secure Session...
             </Text>
-            <View style={[styles.button, { backgroundColor: colors.primary }]}>
-              <Text style={styles.buttonText}>Enter Competitor Portal</Text>
-              <MaterialCommunityIcons name="arrow-right" size={18} color="#fff" />
-            </View>
-          </TouchableOpacity>
-
-          {/* Judge Card */}
-          <TouchableOpacity
-            style={[styles.card, { backgroundColor: colors.backgroundElement, borderColor: colors.border }]}
-            activeOpacity={0.8}
-            onPress={() => router.push('/judge')}
-          >
-            <View style={styles.cardHeader}>
-              <View style={[styles.iconWrapper, { backgroundColor: 'rgba(255, 209, 102, 0.1)' }]}>
-                <MaterialCommunityIcons name="qrcode-scan" size={32} color={colors.accent} />
-              </View>
-              <Text style={[styles.cardTitle, { color: colors.text }]}>Judge Station</Text>
-            </View>
-            <Text style={[styles.cardDescription, { color: colors.textSecondary }]}>
-              Scan competitors' QR codes, verify details, input stackmat times, select penalties, and collect signatures.
-            </Text>
-            <View style={[styles.button, { backgroundColor: 'rgba(255, 209, 102, 0.2)', borderWidth: 1, borderColor: colors.accent }]}>
-              <Text style={[styles.buttonText, { color: colors.accent }]}>Access Judge Station</Text>
-              <MaterialCommunityIcons name="shield-account-outline" size={18} color={colors.accent} />
-            </View>
-          </TouchableOpacity>
-
-        </View>
-
-        {/* Footer */}
-        <View style={styles.footer}>
-          <Text style={[styles.footerText, { color: colors.textSecondary }]}>
-            CubeNexus Mobile Platform • Sync Active
-          </Text>
+          </View>
         </View>
       </SafeAreaView>
     </View>
@@ -120,17 +92,17 @@ const styles = StyleSheet.create({
   },
   safeArea: {
     flex: 1,
-    paddingHorizontal: 24,
     zIndex: 1,
   },
-  header: {
+  content: {
+    flex: 1,
+    justifyContent: 'center',
     alignItems: 'center',
-    marginTop: 30,
-    marginBottom: 20,
+    paddingHorizontal: 24,
   },
   logoContainer: {
-    width: 76,
-    height: 76,
+    width: 80,
+    height: 80,
     borderRadius: 16,
     borderWidth: 1,
     justifyContent: 'center',
@@ -161,6 +133,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 6,
     marginTop: 8,
+    marginBottom: 40,
   },
   sloganText: {
     fontSize: 10,
@@ -179,60 +152,15 @@ const styles = StyleSheet.create({
     borderRadius: 2.5,
     backgroundColor: '#ef4444',
   },
-  portalsContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    gap: 16,
-  },
-  card: {
-    borderRadius: 16,
-    borderWidth: 1,
-    padding: 18,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.15,
-    shadowRadius: 10,
-    elevation: 4,
-  },
-  cardHeader: {
-    flexDirection: 'row',
+  loaderContainer: {
     alignItems: 'center',
     gap: 12,
-    marginBottom: 8,
   },
-  iconWrapper: {
-    padding: 8,
-    borderRadius: 12,
-  },
-  cardTitle: {
-    fontSize: 18,
-    fontWeight: '800',
-  },
-  cardDescription: {
+  loadingText: {
     fontSize: 12.5,
-    lineHeight: 18,
-    marginBottom: 16,
-  },
-  button: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
-    gap: 8,
-    height: 48,
-    borderRadius: 10,
-  },
-  buttonText: {
-    color: '#ffffff',
-    fontWeight: '700',
-    fontSize: 14,
-  },
-  footer: {
-    alignItems: 'center',
-    paddingVertical: 16,
-  },
-  footerText: {
-    fontSize: 10,
-    fontWeight: '700',
-    letterSpacing: 1.5,
+    fontWeight: '600',
+    letterSpacing: 1,
+    marginTop: 8,
   },
 });
+
