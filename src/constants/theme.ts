@@ -9,18 +9,28 @@ import { Platform } from 'react-native';
 
 export const Colors = {
   light: {
-    text: '#000000',
-    background: '#ffffff',
-    backgroundElement: '#F0F0F3',
-    backgroundSelected: '#E0E1E6',
-    textSecondary: '#60646C',
+    text: '#0e1118',
+    background: '#f8f9fa',
+    backgroundElement: '#ffffff',
+    backgroundSelected: '#e9ecef',
+    textSecondary: '#6c757d',
+    primary: '#ff5a36', // Rubik orange-red
+    accent: '#ffd166',  // Rubik yellow
+    success: '#06d6a0', // Rubik green
+    border: '#e2e8f0',
+    card: '#ffffff',
   },
   dark: {
-    text: '#ffffff',
-    background: '#000000',
-    backgroundElement: '#212225',
-    backgroundSelected: '#2E3135',
-    textSecondary: '#B0B4BA',
+    text: '#f8f9fa',
+    background: '#0a0b10', // Deep space dark
+    backgroundElement: '#12131a', // Dark slate surface
+    backgroundSelected: '#1c1e29', // Selected/active item background
+    textSecondary: '#9fa2b2',
+    primary: '#ff5a36',
+    accent: '#ffd166',
+    success: '#06d6a0',
+    border: '#1f212e',
+    card: '#12131a',
   },
 } as const;
 
