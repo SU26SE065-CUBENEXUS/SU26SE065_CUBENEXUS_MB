@@ -1,5 +1,5 @@
 import React from 'react';
-import { StyleSheet, Text, View, TouchableOpacity, useColorScheme, StatusBar } from 'react-native';
+import { StyleSheet, Text, View, TouchableOpacity, useColorScheme, StatusBar, Image } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Colors } from '@/constants/theme';
@@ -21,15 +21,28 @@ export default function WelcomeScreen() {
       </View>
 
       <SafeAreaView style={styles.safeArea}>
-        {/* Header Section */}
+        {/* Header Section aligned with Web FE */}
         <View style={styles.header}>
-          <View style={styles.logoContainer}>
-            <MaterialCommunityIcons name="cube-outline" size={64} color={colors.primary} />
+          <View style={[styles.logoContainer, { backgroundColor: colors.background, borderColor: colors.border }]}>
+            <Image
+              source={require('@/assets/images/logoCube.png')}
+              style={styles.logoImage}
+              resizeMode="contain"
+            />
           </View>
-          <Text style={[styles.brandText, { color: colors.text }]}>CUBE<Text style={{ color: colors.primary }}>NEXUS</Text></Text>
-          <Text style={[styles.subtitleText, { color: colors.textSecondary }]}>
-            COMPETITION HUB & TIMER
-          </Text>
+          
+          <View style={styles.brandRow}>
+            <Text style={[styles.brandText, { color: colors.text }]}>CUBE</Text>
+            <Text style={[styles.brandText, { color: colors.accent }]}>NEXUS</Text>
+          </View>
+
+          <View style={styles.sloganRow}>
+            <Text style={[styles.sloganText, { color: colors.textSecondary }]}>SOLVE</Text>
+            <View style={styles.greenDot} />
+            <Text style={[styles.sloganText, { color: colors.textSecondary }]}>COMPETE</Text>
+            <View style={styles.redDot} />
+            <Text style={[styles.sloganText, { color: colors.textSecondary }]}>INSPIRE</Text>
+          </View>
         </View>
 
         {/* Portal Selection Cards */}
@@ -82,7 +95,7 @@ export default function WelcomeScreen() {
         {/* Footer */}
         <View style={styles.footer}>
           <Text style={[styles.footerText, { color: colors.textSecondary }]}>
-            CubeNexus Mobile Platform • Consistent with Web FE
+            CubeNexus Mobile Platform • Sync Active
           </Text>
         </View>
       </SafeAreaView>
@@ -112,37 +125,69 @@ const styles = StyleSheet.create({
   },
   header: {
     alignItems: 'center',
-    marginTop: 40,
-    marginBottom: 40,
+    marginTop: 30,
+    marginBottom: 20,
   },
   logoContainer: {
-    marginBottom: 12,
+    width: 76,
+    height: 76,
+    borderRadius: 16,
+    borderWidth: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 16,
     shadowColor: '#ff5a36',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.3,
-    shadowRadius: 16,
-    elevation: 8,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.15,
+    shadowRadius: 12,
+    elevation: 6,
+  },
+  logoImage: {
+    width: 60,
+    height: 60,
+  },
+  brandRow: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    gap: 2,
   },
   brandText: {
     fontSize: 32,
     fontWeight: '900',
+    letterSpacing: -0.5,
+  },
+  sloganRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginTop: 8,
+  },
+  sloganText: {
+    fontSize: 10,
+    fontWeight: '800',
     letterSpacing: 2,
   },
-  subtitleText: {
-    fontSize: 12,
-    fontWeight: '700',
-    letterSpacing: 4,
-    marginTop: 6,
+  greenDot: {
+    width: 5,
+    height: 5,
+    borderRadius: 2.5,
+    backgroundColor: '#22c55e',
+  },
+  redDot: {
+    width: 5,
+    height: 5,
+    borderRadius: 2.5,
+    backgroundColor: '#ef4444',
   },
   portalsContainer: {
     flex: 1,
     justifyContent: 'center',
-    gap: 20,
+    gap: 16,
   },
   card: {
     borderRadius: 16,
     borderWidth: 1,
-    padding: 20,
+    padding: 18,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 6 },
     shadowOpacity: 0.15,
@@ -153,20 +198,20 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
-    marginBottom: 10,
+    marginBottom: 8,
   },
   iconWrapper: {
     padding: 8,
     borderRadius: 12,
   },
   cardTitle: {
-    fontSize: 20,
+    fontSize: 18,
     fontWeight: '800',
   },
   cardDescription: {
-    fontSize: 13,
+    fontSize: 12.5,
     lineHeight: 18,
-    marginBottom: 20,
+    marginBottom: 16,
   },
   button: {
     flexDirection: 'row',
@@ -186,7 +231,8 @@ const styles = StyleSheet.create({
     paddingVertical: 16,
   },
   footerText: {
-    fontSize: 11,
-    fontWeight: '600',
+    fontSize: 10,
+    fontWeight: '700',
+    letterSpacing: 1.5,
   },
 });

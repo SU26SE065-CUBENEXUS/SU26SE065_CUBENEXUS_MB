@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useRef } from 'react';
-import { StyleSheet, Text, View, TouchableOpacity, TextInput, ScrollView, useColorScheme, StatusBar, Alert, PanResponder, GestureResponderEvent } from 'react-native';
+import { StyleSheet, Text, View, TouchableOpacity, TextInput, ScrollView, useColorScheme, StatusBar, Alert, PanResponder, GestureResponderEvent, Image } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Colors } from '@/constants/theme';
@@ -85,11 +85,23 @@ export default function JudgeScoring() {
       <StatusBar barStyle="light-content" />
       <SafeAreaView style={styles.safeArea}>
         {/* Header */}
-        <View style={styles.header}>
+        <View style={[styles.header, { borderBottomColor: colors.border }]}>
           <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
             <MaterialCommunityIcons name="chevron-left" size={28} color={colors.text} />
           </TouchableOpacity>
-          <Text style={[styles.headerTitle, { color: colors.text }]}>Scoring & Penalty</Text>
+          
+          <View style={styles.headerLogoRow}>
+            <Image
+              source={require('@/assets/images/logoCube.png')}
+              style={styles.miniLogo}
+              resizeMode="contain"
+            />
+            <View style={styles.miniBrandRow}>
+              <Text style={[styles.miniBrandText, { color: colors.text }]}>CUBE</Text>
+              <Text style={[styles.miniBrandText, { color: colors.accent }]}>NEXUS</Text>
+            </View>
+          </View>
+
           <View style={{ width: 40 }} />
         </View>
 
@@ -276,6 +288,28 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 16,
     height: 56,
+    borderBottomWidth: 1,
+  },
+  headerLogoRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  miniLogo: {
+    width: 28,
+    height: 28,
+    borderRadius: 6,
+    borderWidth: 0.5,
+    borderColor: '#1f212e',
+  },
+  miniBrandRow: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+  },
+  miniBrandText: {
+    fontSize: 14,
+    fontWeight: '900',
+    letterSpacing: -0.2,
   },
   backButton: {
     width: 40,

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { StyleSheet, Text, View, TouchableOpacity, FlatList, useColorScheme, StatusBar, Vibration } from 'react-native';
+import { StyleSheet, Text, View, TouchableOpacity, FlatList, useColorScheme, StatusBar, Vibration, Image } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Colors } from '@/constants/theme';
@@ -160,11 +160,23 @@ export default function PracticeTimer() {
         
         {/* Navigation Header */}
         {status !== 'running' && (
-          <View style={styles.header}>
+          <View style={[styles.header, { borderBottomColor: colors.border }]}>
             <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
               <MaterialCommunityIcons name="arrow-left" size={24} color={colors.text} />
             </TouchableOpacity>
-            <Text style={[styles.headerTitle, { color: colors.text }]}>Practice Timer</Text>
+            
+            <View style={styles.headerLogoRow}>
+              <Image
+                source={require('@/assets/images/logoCube.png')}
+                style={styles.miniLogo}
+                resizeMode="contain"
+              />
+              <View style={styles.miniBrandRow}>
+                <Text style={[styles.miniBrandText, { color: colors.text }]}>CUBE</Text>
+                <Text style={[styles.miniBrandText, { color: colors.accent }]}>NEXUS</Text>
+              </View>
+            </View>
+
             <TouchableOpacity onPress={clearSession} style={styles.clearButton}>
               <MaterialCommunityIcons name="refresh" size={22} color={colors.textSecondary} />
             </TouchableOpacity>
@@ -298,6 +310,28 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 16,
     height: 56,
+    borderBottomWidth: 1,
+  },
+  headerLogoRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  miniLogo: {
+    width: 28,
+    height: 28,
+    borderRadius: 6,
+    borderWidth: 0.5,
+    borderColor: '#1f212e',
+  },
+  miniBrandRow: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+  },
+  miniBrandText: {
+    fontSize: 14,
+    fontWeight: '900',
+    letterSpacing: -0.2,
   },
   backButton: {
     width: 40,
