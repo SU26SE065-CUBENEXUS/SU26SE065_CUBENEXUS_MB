@@ -42,7 +42,7 @@ export default function PlayerDashboard() {
             </View>
           </View>
 
-          <View style={{ width: 40 }} /> {/* Spacer */}
+          <View style={{ width: 40 }} />
         </View>
 
         <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>

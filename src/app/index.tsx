@@ -13,7 +13,7 @@ export default function WelcomeScreen() {
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       <StatusBar barStyle="light-content" />
-      
+
       {/* Visual background glows */}
       <View style={styles.glowContainer}>
         <View style={[styles.glowBall, { backgroundColor: colors.primary, top: -100, left: -50, opacity: 0.15 }]} />
@@ -30,7 +30,7 @@ export default function WelcomeScreen() {
               resizeMode="contain"
             />
           </View>
-          
+
           <View style={styles.brandRow}>
             <Text style={[styles.brandText, { color: colors.text }]}>CUBE</Text>
             <Text style={[styles.brandText, { color: colors.accent }]}>NEXUS</Text>
@@ -47,9 +47,9 @@ export default function WelcomeScreen() {
 
         {/* Portal Selection Cards */}
         <View style={styles.portalsContainer}>
-          
+
           {/* Competitor Card */}
-          <TouchableOpacity 
+          <TouchableOpacity
             style={[styles.card, { backgroundColor: colors.backgroundElement, borderColor: colors.border }]}
             activeOpacity={0.8}
             onPress={() => router.push('/player')}
@@ -70,7 +70,7 @@ export default function WelcomeScreen() {
           </TouchableOpacity>
 
           {/* Judge Card */}
-          <TouchableOpacity 
+          <TouchableOpacity
             style={[styles.card, { backgroundColor: colors.backgroundElement, borderColor: colors.border }]}
             activeOpacity={0.8}
             onPress={() => router.push('/judge')}
