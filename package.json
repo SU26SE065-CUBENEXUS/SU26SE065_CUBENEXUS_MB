@@ -5,6 +5,7 @@
   "dependencies": {
     "@expo/ui": "~56.0.18",
     "@expo/vector-icons": "^15.1.1",
+    "@microsoft/signalr": "^10.0.0",
     "expo": "~56.0.12",
     "expo-constants": "~56.0.18",
     "expo-device": "~56.0.4",
