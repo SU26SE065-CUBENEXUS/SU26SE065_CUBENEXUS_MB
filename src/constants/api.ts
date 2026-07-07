@@ -4,6 +4,7 @@ export interface VerifyJudgeStationByStationDto {
   qrToken: string;
   eventId: string;
   roundNumber: number;
+  groupNumber: number;
   stationNumber: number;
 }
 
@@ -22,11 +23,34 @@ export interface VerifyJudgeStationResponseDto {
   roundNumber?: number;
   groupId?: string;
   groupName: string;
+  competitorName?: string;
   stationNumber?: number;
   nextSolveNumber?: number;
   solveCount?: number;
   canSubmit: boolean;
   currentScramble?: ScrambleInfoDto;
+}
+
+export interface JudgeStationRosterItemDto {
+  groupCompetitorId: string;
+  groupId: string;
+  groupName: string;
+  competitorName: string;
+  eventId: string;
+  eventName: string;
+  roundNumber: number;
+  stationNumber: number;
+  solveCount: number;
+  submittedCount: number;
+  nextSolveNumber?: number | null;
+  canSubmit: boolean;
+  status?: string | null;
+}
+
+export interface JudgeStationRosterResponseDto {
+  success: boolean;
+  message?: string | null;
+  competitors: JudgeStationRosterItemDto[];
 }
 
 export interface SubmitTraditionalResultDto {
@@ -93,6 +117,18 @@ export interface PenaltyTypeDto {
   isDisqualified: boolean;
 }
 
+export interface CheckInResponseDto {
+  success: boolean;
+  message: string;
+  alreadyCheckedIn: boolean;
+  registrationId: string;
+  playerName: string;
+  tournamentName: string;
+  checkedInAt: string | null;
+  events: string[];
+  assignments: any[];
+}
+
 // ---------- API Fetch Helper ----------
 async function apiFetch<T>(path: string, token?: string, options: RequestInit = {}): Promise<T> {
   const headers = {
@@ -109,7 +145,10 @@ async function apiFetch<T>(path: string, token?: string, options: RequestInit = 
   if (!response.ok) {
     const errorBody = await response.json().catch(() => ({}));
     const message = errorBody.message || `HTTP ${response.status}: ${response.statusText}`;
-    throw new Error(message);
+    const error = new Error(message) as Error & { errorCode?: string; status?: number };
+    error.errorCode = errorBody.errorCode || errorBody.code;
+    error.status = response.status;
+    throw error;
   }
 
   if (response.status === 204) {
@@ -136,6 +175,26 @@ export async function verifyJudgeStation(dto: VerifyJudgeStationByStationDto, to
   });
 }
 
+export async function getJudgeStationRoster(
+  eventId: string,
+  roundNumber: number,
+  groupNumber: number,
+  stationNumber: number,
+  token: string
+): Promise<JudgeStationRosterResponseDto> {
+  const query = new URLSearchParams({
+    eventId,
+    roundNumber: String(roundNumber),
+    groupNumber: String(groupNumber),
+    stationNumber: String(stationNumber),
+  });
+
+  return apiFetch<JudgeStationRosterResponseDto>(
+    `/api/tournament-operation/judge/station-roster?${query.toString()}`,
+    token
+  );
+}
+
 export async function submitTraditionalResult(dto: SubmitTraditionalResultDto, token: string): Promise<SubmitResultResponseDto> {
   return apiFetch<SubmitResultResponseDto>('/api/tournament-operation/results/traditional', token, {
     method: 'POST',
@@ -156,4 +215,55 @@ export async function getSolveProgress(groupCompetitorId: string, token: string)
 
 export async function getPenaltyTypes(token: string): Promise<PenaltyTypeDto[]> {
   return apiFetch<PenaltyTypeDto[]>('/api/tournament-operation/penalty-types', token);
+}
+
+
+// ---------- Check-in Endpoint ----------
+// POST /api/tournament-operation/check-in
+// Role: JUDGE, MANAGER, ADMIN
+// Used by Check-in Desk mode to perform reception check-in via QR scan.
+export async function checkInRegistration(qrToken: string, token: string): Promise<CheckInResponseDto> {
+  return apiFetch<CheckInResponseDto>('/api/tournament-operation/check-in', token, {
+    method: 'POST',
+    body: JSON.stringify({ qrToken }),
+  });
+}
+
+// ---------- Mobile Timer (Online Arena Match) Endpoints ----------
+export interface ConnectMobileTimerRequest {
+  qrSessionCode: string;
+  deviceInfo: string;
+}
+
+export interface ConnectMobileTimerResponse {
+  message: string;
+  matchId: string;
+  statusCode: string;
+  playerId: string;
+  player1TimerReady: boolean;
+  player2TimerReady: boolean;
+  deviceInfo: string | null;
+}
+
+export interface SubmitSolveTimeRequest {
+  matchId: string;
+  mobileTimerSessionId: string;
+  deviceSessionToken: string;
+  timeMs: number | null;
+  isDnf: boolean;
+  stoppedAt: string;
+}
+
+export async function connectMobileTimer(dto: ConnectMobileTimerRequest, token: string): Promise<ConnectMobileTimerResponse> {
+  return apiFetch<ConnectMobileTimerResponse>('/api/online/mobile-timer/connect', token, {
+    method: 'POST',
+    body: JSON.stringify(dto),
+  });
+}
+
+export async function submitMobileTimerTime(dto: SubmitSolveTimeRequest, token: string): Promise<any> {
+  return apiFetch<any>('/api/online/mobile-timer/submit-time', token, {
+    method: 'POST',
+    body: JSON.stringify(dto),
+  });
 }

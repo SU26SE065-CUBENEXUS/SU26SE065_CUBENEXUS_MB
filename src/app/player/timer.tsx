@@ -1,9 +1,13 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { StyleSheet, Text, View, TouchableOpacity, FlatList, useColorScheme, StatusBar, Vibration, Image } from 'react-native';
+import { StyleSheet, Text, View, TouchableOpacity, FlatList, useColorScheme, StatusBar, Vibration, Image, Modal, Platform, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Colors } from '@/constants/theme';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { CameraView, useCameraPermissions } from 'expo-camera';
+import { useAuth } from '@/contexts/AuthContext';
+import { connectMobileTimer, submitMobileTimerTime } from '@/constants/api';
+import * as Device from 'expo-device';
 
 type TimerStatus = 'idle' | 'holding' | 'ready' | 'running';
 
@@ -42,11 +46,23 @@ export default function PracticeTimer() {
   const scheme = useColorScheme();
   const colors = Colors[scheme === 'dark' ? 'dark' : 'dark']; // Premium dark-theme lock
   const router = useRouter();
+  const { accessToken } = useAuth();
+  const [cameraPermission, requestCameraPermission] = useCameraPermissions();
 
   const [status, setStatus] = useState<TimerStatus>('idle');
   const [time, setTime] = useState<number>(0);
   const [scramble, setScramble] = useState<string>('');
   const [solves, setSolves] = useState<Solve[]>([]);
+
+  // Online Arena State
+  const [isOnlineMode, setIsOnlineMode] = useState(false);
+  const [matchId, setMatchId] = useState('');
+  const [deviceSessionToken, setDeviceSessionToken] = useState('');
+  const [mobileTimerSessionId, setMobileTimerSessionId] = useState('');
+  const [showScanner, setShowScanner] = useState(false);
+  const [isConnecting, setIsConnecting] = useState(false);
+  const [connectionError, setConnectionError] = useState<string | null>(null);
+  const [isUploading, setIsUploading] = useState(false);
 
   const timerIntervalRef = useRef<any>(null);
   const startTimestampRef = useRef<number>(0);
@@ -65,7 +81,7 @@ export default function PracticeTimer() {
     }, 10);
   }, []);
 
-  const stopTimer = useCallback(() => {
+  const stopTimer = useCallback(async () => {
     if (timerIntervalRef.current) {
       clearInterval(timerIntervalRef.current);
       timerIntervalRef.current = null;
@@ -73,18 +89,40 @@ export default function PracticeTimer() {
     const finalTime = Date.now() - startTimestampRef.current;
     setTime(finalTime);
     
-    // Add to solves history
-    const newSolve: Solve = {
-      id: Math.random().toString(),
-      time: finalTime,
-      timeString: formatTime(finalTime),
-      scramble: scramble,
-      date: new Date(),
-    };
-    setSolves((prev) => [newSolve, ...prev]);
-    setScramble(generateScramble());
+    if (isOnlineMode && accessToken) {
+      // Automatically upload solve time to online match arena
+      setIsUploading(true);
+      try {
+        await submitMobileTimerTime({
+          matchId,
+          mobileTimerSessionId,
+          deviceSessionToken,
+          timeMs: finalTime,
+          isDnf: false,
+          stoppedAt: new Date().toISOString(),
+        }, accessToken);
+        console.log('[Mobile Timer] Solve time uploaded:', finalTime);
+        Vibration.vibrate(80); // Quick success confirmation
+      } catch (err: any) {
+        console.error('[Mobile Timer] Solve time upload failed:', err);
+        Vibration.vibrate([100, 100, 100]); // 3 vibrates for error warning
+      } finally {
+        setIsUploading(false);
+      }
+    } else {
+      // Add to offline solves history
+      const newSolve: Solve = {
+        id: Math.random().toString(),
+        time: finalTime,
+        timeString: formatTime(finalTime),
+        scramble: scramble,
+        date: new Date(),
+      };
+      setSolves((prev) => [newSolve, ...prev]);
+      setScramble(generateScramble());
+    }
     setStatus('idle');
-  }, [scramble]);
+  }, [scramble, isOnlineMode, matchId, mobileTimerSessionId, deviceSessionToken, accessToken]);
 
   // Touch handlers
   const handleTouchStart = () => {
@@ -110,6 +148,57 @@ export default function PracticeTimer() {
     }
   };
 
+  // Barcode / QR scanner handler
+  const handleBarcodeScanned = async ({ data }: { data: string }) => {
+    if (isConnecting) return;
+    setIsConnecting(true);
+    setConnectionError(null);
+
+    try {
+      const scannedCode = data.trim();
+      const devInfo = `${Device.brand || 'Device'} ${Device.modelName || 'Model'} (${Platform.OS})`;
+      
+      console.log('[Mobile Timer] Connecting with token:', scannedCode);
+      const res = await connectMobileTimer({
+        qrSessionCode: scannedCode,
+        deviceInfo: devInfo,
+      }, accessToken || '');
+
+      setMatchId(res.matchId);
+      setDeviceSessionToken(scannedCode);
+      setMobileTimerSessionId(crypto.randomUUID());
+      setIsOnlineMode(true);
+      setShowScanner(false);
+      Vibration.vibrate([0, 100, 50, 100]); // Success pattern vibration
+    } catch (err: any) {
+      console.error('[Mobile Timer] Connection failed:', err);
+      setConnectionError(err.message || 'Connection failed.');
+    } finally {
+      setIsConnecting(false);
+    }
+  };
+
+  const startScannerFlow = async () => {
+    setConnectionError(null);
+    if (!cameraPermission?.granted) {
+      const r = await requestCameraPermission();
+      if (!r.granted) {
+        setConnectionError('Camera permissions are required to scan the pairing QR code.');
+        return;
+      }
+    }
+    setShowScanner(true);
+  };
+
+  const handleDisconnect = () => {
+    setIsOnlineMode(false);
+    setMatchId('');
+    setDeviceSessionToken('');
+    setMobileTimerSessionId('');
+    setTime(0);
+    Vibration.vibrate(100);
+  };
+
   // Stats calculation
   const getBestTime = () => {
     if (solves.length === 0) return '-';
@@ -125,26 +214,23 @@ export default function PracticeTimer() {
 
   const getAo5 = () => {
     if (solves.length < 5) return '-';
-    // Take the 5 most recent solves
     const lastFive = solves.slice(0, 5).map((s) => s.time);
-    // In cubing, remove best and worst, average middle 3
     const sorted = [...lastFive].sort((a, b) => a - b);
     const middleThree = sorted.slice(1, 4);
     const sum = middleThree.reduce((acc, t) => acc + t, 0);
     return formatTime(sum / 3) + 's';
   };
 
-  // Color selection based on timer status
   const getTimerColor = () => {
     switch (status) {
       case 'holding':
-        return '#ef4444'; // Red (holding but not ready)
+        return '#ef4444'; // Red
       case 'ready':
-        return '#06d6a0'; // Green (ready to release)
+        return '#06d6a0'; // Green
       case 'running':
-        return '#ffffff'; // White (running)
+        return '#ffffff'; // White
       default:
-        return colors.text; // Default idle color
+        return colors.text;
     }
   };
 
@@ -161,9 +247,17 @@ export default function PracticeTimer() {
         {/* Navigation Header */}
         {status !== 'running' && (
           <View style={[styles.header, { borderBottomColor: colors.border }]}>
-            <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-              <MaterialCommunityIcons name="arrow-left" size={24} color={colors.text} />
-            </TouchableOpacity>
+            {isOnlineMode ? (
+              <TouchableOpacity onPress={handleDisconnect} style={styles.disconnectBtn}>
+                <MaterialCommunityIcons name="lan-disconnect" size={20} color="#ef4444" />
+                <Text style={styles.disconnectBtnText}>Exit Arena</Text>
+              </TouchableOpacity>
+            ) : (
+              <TouchableOpacity onPress={startScannerFlow} style={styles.connectBtn}>
+                <MaterialCommunityIcons name="qrcode-scan" size={16} color={colors.accent} />
+                <Text style={[styles.connectBtnText, { color: colors.accent }]}>Pair PC Arena</Text>
+              </TouchableOpacity>
+            )}
             
             <View style={styles.headerLogoRow}>
               <Image
@@ -177,14 +271,29 @@ export default function PracticeTimer() {
               </View>
             </View>
 
-            <TouchableOpacity onPress={clearSession} style={styles.clearButton}>
-              <MaterialCommunityIcons name="refresh" size={22} color={colors.textSecondary} />
-            </TouchableOpacity>
+            {isOnlineMode ? (
+              <View style={{ width: 40 }} />
+            ) : (
+              <TouchableOpacity onPress={clearSession} style={styles.clearButton}>
+                <MaterialCommunityIcons name="refresh" size={22} color={colors.textSecondary} />
+              </TouchableOpacity>
+            )}
           </View>
         )}
 
-        {/* Scramble Display */}
-        {status !== 'running' && (
+        {/* Online Active Banner */}
+        {isOnlineMode && status !== 'running' && (
+          <View style={styles.arenaBanner}>
+            <View style={styles.arenaRow}>
+              <View style={styles.arenaIndicator} />
+              <Text style={styles.arenaText}>ARENA ONLINE MODE ACTIVE</Text>
+            </View>
+            <Text style={styles.arenaSubtext}>Look at PC screen for scramble sequence.</Text>
+          </View>
+        )}
+
+        {/* Scramble Display (Offline Only) */}
+        {!isOnlineMode && status !== 'running' && (
           <View style={styles.scrambleContainer}>
             <Text style={[styles.scrambleLabel, { color: colors.primary }]}>SCRAMBLE</Text>
             <Text style={[styles.scrambleText, { color: colors.text }]}>{scramble}</Text>
@@ -203,11 +312,15 @@ export default function PracticeTimer() {
           onPressOut={handleTouchEnd}
         >
           <View style={styles.timerDisplayWrapper}>
-            <Text style={[styles.timerText, { color: getTimerColor() }]}>
-              {formatTime(time)}
-            </Text>
+            {isUploading ? (
+              <ActivityIndicator size="large" color={colors.accent} />
+            ) : (
+              <Text style={[styles.timerText, { color: getTimerColor() }]}>
+                {formatTime(time)}
+              </Text>
+            )}
             
-            {status === 'idle' && (
+            {status === 'idle' && !isUploading && (
               <Text style={[styles.helperText, { color: colors.textSecondary }]}>
                 TOUCH AND HOLD TO ARM TIMER
               </Text>
@@ -227,11 +340,16 @@ export default function PracticeTimer() {
                 TAP ANYWHERE TO STOP
               </Text>
             )}
+            {isUploading && (
+              <Text style={[styles.helperText, { color: colors.accent }]}>
+                UPLOADING TIME TO ARENA...
+              </Text>
+            )}
           </View>
         </TouchableOpacity>
 
-        {/* Session Stats & Solve History (Only when not running) */}
-        {status !== 'running' && (
+        {/* Session Stats & Solve History (Offline Only) */}
+        {status !== 'running' && !isOnlineMode && (
           <View style={[styles.historySection, { backgroundColor: colors.backgroundElement, borderTopColor: colors.border }]}>
             
             {/* Quick Stats */}
@@ -292,6 +410,67 @@ export default function PracticeTimer() {
           </View>
         )}
 
+        {/* Online Arena Info display */}
+        {isOnlineMode && status !== 'running' && (
+          <View style={[styles.historySection, { backgroundColor: colors.backgroundElement, borderTopColor: colors.border, justifyContent: 'center', alignItems: 'center' }]}>
+            <MaterialCommunityIcons name="sword-cross" size={64} color={colors.accent} style={{ opacity: 0.15, marginBottom: 12 }} />
+            <Text style={[styles.arenaActiveHeader, { color: colors.text }]}>MATCH ARENA CONNECTED</Text>
+            <Text style={[styles.arenaActiveText, { color: colors.textSecondary }]}>
+              Session is linked to the browser match page. Time will be submitted automatically upon stopping the timer.
+            </Text>
+            {connectionError && (
+              <Text style={styles.errorText}>{connectionError}</Text>
+            )}
+          </View>
+        )}
+
+        {/* QR Scanner Modal */}
+        <Modal
+          visible={showScanner}
+          animationType="slide"
+          transparent={false}
+          onRequestClose={() => setShowScanner(false)}
+        >
+          <View style={styles.scannerContainer}>
+            {cameraPermission?.granted ? (
+              <CameraView
+                style={StyleSheet.absoluteFillObject}
+                onBarcodeScanned={handleBarcodeScanned}
+              />
+            ) : (
+              <View style={styles.permissionContainer as any}>
+                <Text style={styles.permissionText as any}>Camera permission required.</Text>
+              </View>
+            )}
+
+            {/* Overlay Viewfinder */}
+            <View style={styles.overlayContainer as any}>
+              <View style={styles.scanTargetBox as any} />
+              <Text style={styles.scanLabel as any}>Scan Pairing QR Code from PC setup page</Text>
+              
+              {isConnecting && (
+                <View style={styles.connectingBanner as any}>
+                  <ActivityIndicator size="small" color="#fff" />
+                  <Text style={styles.connectingText as any}>Registering Mobile Timer...</Text>
+                </View>
+              )}
+
+              {connectionError && (
+                <View style={styles.errorBanner as any}>
+                  <Text style={styles.errorText as any}>{connectionError}</Text>
+                </View>
+              )}
+
+              <TouchableOpacity
+                onPress={() => setShowScanner(false)}
+                style={styles.cancelBtn as any}
+              >
+                <Text style={styles.cancelBtnText as any}>Cancel</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </Modal>
+
       </SafeAreaView>
     </View>
   );
@@ -333,21 +512,79 @@ const styles = StyleSheet.create({
     fontWeight: '900',
     letterSpacing: -0.2,
   },
-  backButton: {
-    width: 40,
-    height: 40,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  headerTitle: {
-    fontSize: 18,
-    fontWeight: '800',
-  },
   clearButton: {
     width: 40,
     height: 40,
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  connectBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 137, 17, 0.2)',
+    backgroundColor: 'rgba(255, 137, 17, 0.05)',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 12,
+  },
+  connectBtnText: {
+    fontSize: 10,
+    fontWeight: '800',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  disconnectBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    borderWidth: 1,
+    borderColor: 'rgba(239, 68, 68, 0.2)',
+    backgroundColor: 'rgba(239, 68, 68, 0.05)',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 12,
+  },
+  disconnectBtnText: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: '#ef4444',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  arenaBanner: {
+    backgroundColor: 'rgba(6, 214, 160, 0.06)',
+    borderColor: 'rgba(6, 214, 160, 0.2)',
+    borderWidth: 1,
+    marginHorizontal: 16,
+    marginTop: 12,
+    borderRadius: 16,
+    padding: 10,
+    alignItems: 'center',
+  },
+  arenaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 2,
+  },
+  arenaIndicator: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: '#06d6a0',
+  },
+  arenaText: {
+    color: '#06d6a0',
+    fontSize: 9,
+    fontWeight: '900',
+    letterSpacing: 1.5,
+  },
+  arenaSubtext: {
+    color: 'rgba(255, 255, 255, 0.4)',
+    fontSize: 9,
+    fontWeight: '700',
   },
   scrambleContainer: {
     paddingHorizontal: 20,
@@ -401,6 +638,7 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     letterSpacing: 2,
     marginTop: 12,
+    textAlign: 'center',
   },
   historySection: {
     flex: 1,
@@ -473,5 +711,100 @@ const styles = StyleSheet.create({
   solveScramble: {
     fontSize: 12,
     maxWidth: '60%',
+  },
+  arenaActiveHeader: {
+    fontSize: 14,
+    fontWeight: '900',
+    letterSpacing: 1.5,
+    marginBottom: 6,
+  },
+  arenaActiveText: {
+    fontSize: 11,
+    textAlign: 'center',
+    lineHeight: 18,
+    paddingHorizontal: 20,
+  },
+  scannerContainer: {
+    flex: 1,
+    backgroundColor: '#000',
+  },
+  permissionContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  permissionText: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: 'bold',
+  },
+  overlayContainer: {
+    ...StyleSheet.absoluteFillObject,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0,0,0,0.5)',
+  },
+  scanTargetBox: {
+    width: 220,
+    height: 220,
+    borderWidth: 2,
+    borderColor: '#ff8911',
+    borderRadius: 24,
+    marginBottom: 20,
+  },
+  scanLabel: {
+    color: '#fff',
+    fontSize: 12,
+    fontWeight: '800',
+    letterSpacing: 1,
+    textAlign: 'center',
+    marginBottom: 40,
+  },
+  connectingBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: '#1f212e',
+    borderColor: '#ff8911',
+    borderWidth: 1,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 16,
+    marginBottom: 20,
+  },
+  connectingText: {
+    color: '#fff',
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  errorBanner: {
+    backgroundColor: 'rgba(239, 68, 68, 0.1)',
+    borderColor: '#ef4444',
+    borderWidth: 1,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 16,
+    marginBottom: 20,
+    maxWidth: '80%',
+  },
+  errorText: {
+    color: '#ef4444',
+    fontSize: 10,
+    fontWeight: '700',
+    textAlign: 'center',
+    marginTop: 10,
+  },
+  cancelBtn: {
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    borderRadius: 16,
+    backgroundColor: 'rgba(255,255,255,0.08)',
+  },
+  cancelBtnText: {
+    color: '#fff',
+    fontSize: 12,
+    fontWeight: '800',
+    textTransform: 'uppercase',
+    letterSpacing: 1,
   },
 });

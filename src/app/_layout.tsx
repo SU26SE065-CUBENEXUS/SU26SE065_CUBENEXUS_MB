@@ -1,4 +1,5 @@
-import { DarkTheme, DefaultTheme, ThemeProvider, Stack } from 'expo-router';
+import { Stack } from 'expo-router';
+import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
 import { useColorScheme } from 'react-native';
 
 import { AnimatedSplashOverlay } from '@/components/animated-icon';
@@ -13,10 +14,8 @@ export default function RootLayout() {
         <Stack screenOptions={{ headerShown: false }}>
           <Stack.Screen name="index" />
           <Stack.Screen name="login" />
-          <Stack.Screen name="player/index" />
-          <Stack.Screen name="player/timer" />
+          <Stack.Screen name="player" />
           <Stack.Screen name="judge/index" />
-          <Stack.Screen name="judge/scoring" />
         </Stack>
       </ThemeProvider>
     </AuthProvider>
