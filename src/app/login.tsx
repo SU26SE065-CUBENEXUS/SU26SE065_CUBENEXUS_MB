@@ -64,7 +64,7 @@ export default function LoginScreen() {
       </View>
 
       <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         style={{ flex: 1 }}
       >
         <SafeAreaView style={styles.safeArea}>
@@ -73,7 +73,8 @@ export default function LoginScreen() {
             showsVerticalScrollIndicator={false}
             keyboardShouldPersistTaps="handled"
           >
-            {/* Header Section */}
+            <View style={styles.innerContainer}>
+              {/* Header Section */}
             <View style={styles.header}>
               <View style={[styles.logoContainer, { backgroundColor: colors.background, borderColor: colors.border }]}>
                 <Image
@@ -224,6 +225,8 @@ export default function LoginScreen() {
                 CubeNexus Mobile Platform
               </Text>
             </View>
+
+            </View>
           </ScrollView>
         </SafeAreaView>
       </KeyboardAvoidingView>
@@ -252,9 +255,12 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     flexGrow: 1,
+  },
+  innerContainer: {
+    flexGrow: 1,
     justifyContent: 'center',
     paddingHorizontal: 24,
-    paddingVertical: 20,
+    paddingVertical: 40,
   },
   header: {
     alignItems: 'center',
