@@ -41,7 +41,6 @@ export default function JudgeDashboard() {
 
   return (
     <>
-      <StatusBar barStyle="light-content" />
       {dutyMode === null && (
         <JudgeDutySelection
           onSelectDuty={handleSelectDuty}

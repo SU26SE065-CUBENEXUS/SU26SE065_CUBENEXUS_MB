@@ -11,6 +11,7 @@ import {
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Colors } from '@/constants/theme';
+import { useTheme } from '@/hooks/use-theme';
 import { JudgeLaneConfig, JudgeStationCompetitor } from '../../types';
 
 function extractQrToken(data: string): string | null {
@@ -78,7 +79,7 @@ export default function JudgeScanTab({
   onSelectForScoring,
   verifyCompetitorInRoster,
 }: Props) {
-  const colors = Colors.dark;
+  const colors = useTheme();
   const [showCamera, setShowCamera] = useState(false);
   const [cameraKey, setCameraKey] = useState(0);
   const [cameraPermission, requestCameraPermission] = useCameraPermissions();
@@ -174,9 +175,9 @@ export default function JudgeScanTab({
   if (!laneConfig) {
     return (
       <View style={styles.notConfigured}>
-        <MaterialCommunityIcons name="connection" size={36} color={Colors.dark.border} />
-        <Text style={[styles.notConfiguredTitle, { color: Colors.dark.textSecondary }]}>Station Not Configured</Text>
-        <Text style={[styles.notConfiguredSub, { color: Colors.dark.textSecondary }]}>
+        <MaterialCommunityIcons name="connection" size={36} color={colors.border} />
+        <Text style={[styles.notConfiguredTitle, { color: colors.textSecondary }]}>Station Not Configured</Text>
+        <Text style={[styles.notConfiguredSub, { color: colors.textSecondary }]}>
           Go to the Station tab and register your lane connection first.
         </Text>
       </View>

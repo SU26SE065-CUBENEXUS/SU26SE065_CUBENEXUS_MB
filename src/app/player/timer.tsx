@@ -3,6 +3,7 @@ import { StyleSheet, Text, View, TouchableOpacity, FlatList, useColorScheme, Sta
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Colors } from '@/constants/theme';
+import { useTheme } from '@/hooks/use-theme';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { useAuth } from '@/contexts/AuthContext';
@@ -44,7 +45,7 @@ function formatTime(ms: number): string {
 
 export default function PracticeTimer() {
   const scheme = useColorScheme();
-  const colors = Colors[scheme === 'dark' ? 'dark' : 'dark']; // Premium dark-theme lock
+  const colors = useTheme();
   const router = useRouter();
   const { accessToken } = useAuth();
   const [cameraPermission, requestCameraPermission] = useCameraPermissions();
@@ -228,7 +229,7 @@ export default function PracticeTimer() {
       case 'ready':
         return '#06d6a0'; // Green
       case 'running':
-        return '#ffffff'; // White
+        return colors.text; // Dynamic theme text color
       default:
         return colors.text;
     }
@@ -241,7 +242,6 @@ export default function PracticeTimer() {
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
-      <StatusBar barStyle="light-content" />
       <SafeAreaView style={styles.safeArea}>
         
         {/* Navigation Header */}
@@ -254,8 +254,8 @@ export default function PracticeTimer() {
               </TouchableOpacity>
             ) : (
               <TouchableOpacity onPress={startScannerFlow} style={styles.connectBtn}>
-                <MaterialCommunityIcons name="qrcode-scan" size={16} color={colors.accent} />
-                <Text style={[styles.connectBtnText, { color: colors.accent }]}>Pair PC Arena</Text>
+                <MaterialCommunityIcons name="qrcode-scan" size={16} color={scheme === 'dark' ? colors.accent : colors.primary} />
+                <Text style={[styles.connectBtnText, { color: scheme === 'dark' ? colors.accent : colors.primary }]}>Pair PC Arena</Text>
               </TouchableOpacity>
             )}
             
@@ -267,7 +267,7 @@ export default function PracticeTimer() {
               />
               <View style={styles.miniBrandRow}>
                 <Text style={[styles.miniBrandText, { color: colors.text }]}>CUBE</Text>
-                <Text style={[styles.miniBrandText, { color: colors.accent }]}>NEXUS</Text>
+                <Text style={[styles.miniBrandText, { color: scheme === 'dark' ? colors.accent : colors.primary }]}>NEXUS</Text>
               </View>
             </View>
 
@@ -288,7 +288,9 @@ export default function PracticeTimer() {
               <View style={styles.arenaIndicator} />
               <Text style={styles.arenaText}>ARENA ONLINE MODE ACTIVE</Text>
             </View>
-            <Text style={styles.arenaSubtext}>Look at PC screen for scramble sequence.</Text>
+            <Text style={[styles.arenaSubtext, { color: scheme === 'dark' ? 'rgba(255,255,255,0.4)' : colors.textSecondary }]}>
+              Look at PC screen for scramble sequence.
+            </Text>
           </View>
         )}
 
@@ -356,7 +358,7 @@ export default function PracticeTimer() {
             <View style={[styles.statsBar, { borderBottomColor: colors.border }]}>
               <View style={styles.statItem}>
                 <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Ao5</Text>
-                <Text style={[styles.statValue, { color: colors.accent }]}>{getAo5()}</Text>
+                <Text style={[styles.statValue, { color: scheme === 'dark' ? colors.accent : colors.primary }]}>{getAo5()}</Text>
               </View>
               <View style={styles.statItem}>
                 <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Session Avg</Text>

@@ -14,6 +14,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors } from '@/constants/theme';
+import { useTheme } from '@/hooks/use-theme';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLocalSearchParams } from 'expo-router';
@@ -28,7 +29,7 @@ import { RegistrationDto, TournamentDetailDto, EventDetailDto } from '@/types/co
 type TabSegment = 'MY_REGS' | 'OPEN_TOURS' | 'PAST_TOURS';
 
 export default function TournamentsScreen() {
-  const colors = Colors.dark;
+  const colors = useTheme();
   const { user, accessToken } = useAuth();
   const params = useLocalSearchParams();
 
@@ -225,7 +226,6 @@ export default function TournamentsScreen() {
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
-      <StatusBar barStyle="light-content" />
       <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
         
         {/* Header Title */}

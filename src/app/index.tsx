@@ -3,11 +3,12 @@ import { StyleSheet, Text, View, ActivityIndicator, StatusBar, Image, useColorSc
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Colors } from '@/constants/theme';
+import { useTheme } from '@/hooks/use-theme';
 import { useAuth } from '@/contexts/AuthContext';
 
 export default function GatekeeperScreen() {
   const scheme = useColorScheme();
-  const colors = Colors[scheme === 'dark' ? 'dark' : 'dark']; // Force dark mode for a premium aesthetic
+  const colors = useTheme();
   const router = useRouter();
   const { user, isAuthenticated, isLoading } = useAuth();
 
@@ -31,7 +32,6 @@ export default function GatekeeperScreen() {
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
-      <StatusBar barStyle="light-content" />
 
       {/* Visual background glows */}
       <View style={styles.glowContainer}>

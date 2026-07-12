@@ -10,17 +10,20 @@ import {
   ActivityIndicator,
   Modal,
   Platform,
+  useColorScheme,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Colors } from '@/constants/theme';
+import { useTheme } from '@/hooks/use-theme';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useAuth } from '@/contexts/AuthContext';
 import { fetchCompetitorRegistrations } from '@/services/competitorService';
 import { RegistrationDto } from '@/types/competitor';
 
 export default function PlayerHome() {
-  const colors = Colors.dark;
+  const colors = useTheme();
+  const scheme = useColorScheme();
   const router = useRouter();
   const { user, accessToken } = useAuth();
 
@@ -97,7 +100,6 @@ export default function PlayerHome() {
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
-      <StatusBar barStyle="light-content" />
       <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
         
         {/* Header Branding */}
@@ -247,17 +249,25 @@ export default function PlayerHome() {
                     const isAssignmentPublished = hasGroup && a!.isPublished;
                     return (
                       <View key={evt.registrationEventId} style={[styles.assignmentArea, {
-                        backgroundColor: colors.background,
-                        borderColor: isAssignmentPublished ? colors.primary + '40' : colors.border,
+                        backgroundColor: isAssignmentPublished
+                          ? (scheme === 'dark' ? colors.background : colors.primary + '0c')
+                          : colors.background,
+                        borderColor: isAssignmentPublished
+                          ? (scheme === 'dark' ? colors.primary + '40' : colors.primary + '50')
+                          : colors.border,
                         borderStyle: isAssignmentPublished ? 'solid' : 'dashed',
+                        borderWidth: isAssignmentPublished ? 1.2 : 1,
                       }]}>
                         <View style={styles.assignmentHeader}>
                           <MaterialCommunityIcons
                             name={isAssignmentPublished ? 'bell-ring-outline' : 'information-outline'}
                             size={14}
-                            color={isAssignmentPublished ? colors.accent : colors.textSecondary}
+                            color={isAssignmentPublished ? (scheme === 'dark' ? colors.accent : colors.primary) : colors.textSecondary}
                           />
-                          <Text style={[styles.assignmentTitle, { color: isAssignmentPublished ? colors.accent : colors.textSecondary }]}>
+                          <Text style={[
+                            styles.assignmentTitle,
+                            { color: isAssignmentPublished ? (scheme === 'dark' ? colors.accent : colors.primary) : colors.textSecondary }
+                          ]}>
                             {evt.puzzleTypeName.toUpperCase()}
                           </Text>
                         </View>
@@ -296,11 +306,20 @@ export default function PlayerHome() {
               {/* CTA for QR */}
               {activeTournament.statusCode !== 'CANCELLED' && (
                 <TouchableOpacity
-                  style={[styles.qrCtaButton, { backgroundColor: colors.backgroundSelected, borderColor: colors.border }]}
+                  style={[
+                    styles.qrCtaButton,
+                    {
+                      backgroundColor: scheme === 'dark' ? colors.backgroundSelected : colors.primary + '12',
+                      borderColor: scheme === 'dark' ? colors.border : colors.primary + '40',
+                      borderWidth: 1.2,
+                    }
+                  ]}
                   onPress={() => setShowQrModal(true)}
                 >
                   <MaterialCommunityIcons name="qrcode" size={20} color={colors.primary} />
-                  <Text style={[styles.qrCtaText, { color: colors.text }]}>Open QR Check-In Ticket</Text>
+                  <Text style={[styles.qrCtaText, { color: scheme === 'dark' ? colors.text : colors.primary }]}>
+                    Open QR Check-In Ticket
+                  </Text>
                 </TouchableOpacity>
               )}
             </View>

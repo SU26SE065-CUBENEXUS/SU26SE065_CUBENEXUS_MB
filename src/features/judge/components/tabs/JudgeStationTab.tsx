@@ -5,6 +5,7 @@ import {
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Colors } from '@/constants/theme';
+import { useTheme } from '@/hooks/use-theme';
 
 interface Props {
   tournaments: any[];
@@ -41,7 +42,7 @@ export default function JudgeStationTab({
   isConfigComplete, onRegister, onDisconnect,
   laneConfig, activeEvent,
 }: Props) {
-  const colors = Colors.dark;
+  const colors = useTheme();
 
   if (isLoadingTournaments) {
     return (

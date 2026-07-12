@@ -3,6 +3,7 @@ import { View, Text, TouchableOpacity, StyleSheet, StatusBar, Image } from 'reac
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Colors } from '@/constants/theme';
+import { useTheme } from '@/hooks/use-theme';
 import { useJudgeLaneConfig, useJudgeStationQueue } from '../services/judgeService';
 import { getSelectedCompetitorId, setSelectedCompetitorId, subscribeJudgeStore } from '../services/judgeStore';
 import { JudgeStationCompetitor } from '../types';
@@ -22,7 +23,7 @@ interface Props {
 }
 
 export default function StationJudgeMode({ token, onChangeDuty }: Props) {
-  const colors = Colors.dark;
+  const colors = useTheme();
   const [activeTab, setActiveTab] = useState<StationTab>('station');
   const [selectedCompId, setSelectedCompId] = useState<string | null>(getSelectedCompetitorId());
 
@@ -60,7 +61,6 @@ export default function StationJudgeMode({ token, onChangeDuty }: Props) {
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
-      <StatusBar barStyle="light-content" />
       <SafeAreaView style={styles.safe} edges={['top']}>
         <View style={[styles.header, { borderBottomColor: colors.border }]}>
           <TouchableOpacity onPress={onChangeDuty} style={styles.backBtn}>

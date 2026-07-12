@@ -2,6 +2,7 @@ import React from 'react';
 import { FlatList, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Colors } from '@/constants/theme';
+import { useTheme } from '@/hooks/use-theme';
 import { JudgeStationCompetitor } from '../../types';
 
 interface Props {
@@ -10,12 +11,12 @@ interface Props {
   onSelectCompetitor: (competitor: JudgeStationCompetitor) => void;
 }
 
-function getDisplayState(competitor: JudgeStationCompetitor): { label: string; color: string; background: string } {
+function getDisplayState(competitor: JudgeStationCompetitor, colors: any): { label: string; color: string; background: string } {
   if (competitor.sessionState === 'ISSUE') {
     return { label: 'ISSUE', color: '#ef4444', background: '#ef444412' };
   }
   if (competitor.sessionState === 'SCORING') {
-    return { label: 'SCORING', color: Colors.dark.primary, background: Colors.dark.primary + '12' };
+    return { label: 'SCORING', color: colors.primary, background: colors.primary + '12' };
   }
   if (competitor.sessionState === 'VERIFIED') {
     return { label: 'VERIFIED', color: '#f59e0b', background: '#f59e0b12' };
@@ -29,7 +30,7 @@ function getDisplayState(competitor: JudgeStationCompetitor): { label: string; c
   if (competitor.backendStatus === 'ABSENT' || competitor.backendStatus === 'DNS') {
     return { label: competitor.backendStatus, color: '#ef4444', background: '#ef444412' };
   }
-  return { label: 'WAITING', color: Colors.dark.textSecondary, background: 'rgba(255,255,255,0.05)' };
+  return { label: 'WAITING', color: colors.textSecondary, background: colors.backgroundSelected };
 }
 
 export default function JudgeRosterTab({
@@ -37,7 +38,7 @@ export default function JudgeRosterTab({
   selectedCompetitorId,
   onSelectCompetitor,
 }: Props) {
-  const colors = Colors.dark;
+  const colors = useTheme();
 
   if (queue.length === 0) {
     return (
@@ -67,7 +68,7 @@ export default function JudgeRosterTab({
         showsVerticalScrollIndicator={false}
         renderItem={({ item }) => {
           const isSelected = selectedCompetitorId === item.groupCompetitorId;
-          const status = getDisplayState(item);
+          const status = getDisplayState(item, colors);
           const canScore = item.sessionState === 'VERIFIED' || item.sessionState === 'SCORING' || item.backendStatus === 'PARTIAL';
 
           return (

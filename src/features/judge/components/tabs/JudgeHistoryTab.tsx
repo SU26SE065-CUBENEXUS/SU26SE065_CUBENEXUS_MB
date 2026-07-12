@@ -2,11 +2,12 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, FlatList, StyleSheet } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Colors } from '@/constants/theme';
+import { useTheme } from '@/hooks/use-theme';
 import { JudgeHistoryRecord } from '../../types';
 import { getJudgeSessionHistory } from '../../services/judgeStore';
 
 export default function JudgeHistoryTab() {
-  const colors = Colors.dark;
+  const colors = useTheme();
   const [history, setHistory] = useState<JudgeHistoryRecord[]>(getJudgeSessionHistory());
 
   // Poll for updates

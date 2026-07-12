@@ -2,6 +2,7 @@ import React from 'react';
 import { View, Text, FlatList, StyleSheet } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Colors } from '@/constants/theme';
+import { useTheme } from '@/hooks/use-theme';
 import { CheckInRecord } from '../../types';
 
 interface Props {
@@ -9,7 +10,7 @@ interface Props {
 }
 
 export default function CheckInRecentTab({ history }: Props) {
-  const colors = Colors.dark;
+  const colors = useTheme();
 
   if (history.length === 0) {
     return (

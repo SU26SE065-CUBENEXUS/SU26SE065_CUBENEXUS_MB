@@ -1,10 +1,11 @@
 import { Tabs } from 'expo-router';
 import { Colors } from '@/constants/theme';
+import { useTheme } from '@/hooks/use-theme';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Platform } from 'react-native';
 
 export default function PlayerLayout() {
-  const colors = Colors.dark;
+  const colors = useTheme();
 
   return (
     <Tabs

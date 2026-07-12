@@ -3,6 +3,7 @@ import { View, Text, TouchableOpacity, StyleSheet, StatusBar } from 'react-nativ
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Colors } from '@/constants/theme';
+import { useTheme } from '@/hooks/use-theme';
 import { useCheckInDesk } from '../services/judgeService';
 import CheckInScanTab from './checkin/CheckInScanTab';
 import CheckInRecentTab from './checkin/CheckInRecentTab';
@@ -16,7 +17,7 @@ interface Props {
 }
 
 export default function CheckInDeskMode({ token, onChangeDuty, onLogout }: Props) {
-  const colors = Colors.dark;
+  const colors = useTheme();
   const [activeTab, setActiveTab] = useState<CheckInTab>('scan');
   const { isScanning, lastResult, recentHistory, performCheckIn, clearResult } = useCheckInDesk(token);
 
@@ -27,7 +28,6 @@ export default function CheckInDeskMode({ token, onChangeDuty, onLogout }: Props
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
-      <StatusBar barStyle="light-content" />
       <SafeAreaView style={styles.safe} edges={['top']}>
         {/* Header */}
         <View style={[styles.header, { borderBottomColor: colors.border }]}>

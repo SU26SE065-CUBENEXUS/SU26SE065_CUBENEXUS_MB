@@ -8,6 +8,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors } from '@/constants/theme';
+import { useTheme } from '@/hooks/use-theme';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 
 interface PersonalBest {
@@ -20,7 +21,7 @@ interface PersonalBest {
 }
 
 export default function ResultsScreen() {
-  const colors = Colors.dark;
+  const colors = useTheme();
 
   // Real or mock personal best records
   const personalBests: PersonalBest[] = [
@@ -52,7 +53,6 @@ export default function ResultsScreen() {
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
-      <StatusBar barStyle="light-content" />
       <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
         
         {/* Header */}

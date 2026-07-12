@@ -12,6 +12,7 @@ import {
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Colors } from '@/constants/theme';
+import { useTheme } from '@/hooks/use-theme';
 import { JudgeStationCompetitor, PenaltyMode } from '../../types';
 import { useJudgeScoring } from '../../services/judgeService';
 import { getActiveEvent, getActiveTournament, getLaneConfig } from '../../services/judgeStore';
@@ -36,7 +37,7 @@ export default function JudgeScoreTab({
   onScoreComplete,
   onGoToScan,
 }: Props) {
-  const colors = Colors.dark;
+  const colors = useTheme();
   const laneConfig = getLaneConfig();
   const tournament = getActiveTournament();
   const event = getActiveEvent();

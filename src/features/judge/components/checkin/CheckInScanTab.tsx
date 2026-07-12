@@ -6,6 +6,7 @@ import {
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Colors } from '@/constants/theme';
+import { useTheme } from '@/hooks/use-theme';
 import { CheckInRecord } from '../../types';
 
 interface Props {
@@ -73,7 +74,7 @@ function extractQrToken(data: string): string | null {
 }
 
 export default function CheckInScanTab({ isScanning, lastResult, onScan, onClearResult }: Props) {
-  const colors = Colors.dark;
+  const colors = useTheme();
   const [showCamera, setShowCamera] = useState(false);
   const [cameraPermission, requestCameraPermission] = useCameraPermissions();
 

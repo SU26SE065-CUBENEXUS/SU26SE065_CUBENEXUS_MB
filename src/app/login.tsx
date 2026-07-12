@@ -16,10 +16,11 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useAuth } from '@/contexts/AuthContext';
 import { Colors } from '@/constants/theme';
+import { useTheme } from '@/hooks/use-theme';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 
 export default function LoginScreen() {
-  const colors = Colors.dark; // Force dark mode for a premium aesthetic
+  const colors = useTheme();
   const router = useRouter();
   const { login } = useAuth();
 
@@ -55,7 +56,6 @@ export default function LoginScreen() {
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
-      <StatusBar barStyle="light-content" />
 
       {/* Background glow effects */}
       <View style={styles.glowContainer}>
