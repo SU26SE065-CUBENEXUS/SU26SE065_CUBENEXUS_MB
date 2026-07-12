@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, StatusBar, Image } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, StatusBar, Image, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Colors } from '@/constants/theme';
@@ -207,8 +207,14 @@ const styles = StyleSheet.create({
   tabBar: {
     flexDirection: 'row',
     borderTopWidth: 1,
-    paddingBottom: 4,
-    paddingTop: 6,
+    height: Platform.OS === 'ios' ? 76 : 58,
+    paddingBottom: Platform.OS === 'ios' ? 20 : 6,
+    paddingTop: 8,
+    elevation: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 4,
   },
   tabItem: {
     flex: 1,

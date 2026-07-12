@@ -1,7 +1,7 @@
 import React from 'react';
 import {
   View, Text, TouchableOpacity, ScrollView, TextInput,
-  StyleSheet, ActivityIndicator,
+  StyleSheet, ActivityIndicator, useColorScheme,
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Colors } from '@/constants/theme';
@@ -43,6 +43,7 @@ export default function JudgeStationTab({
   laneConfig, activeEvent,
 }: Props) {
   const colors = useTheme();
+  const scheme = useColorScheme();
 
   if (isLoadingTournaments) {
     return (
@@ -83,28 +84,28 @@ export default function JudgeStationTab({
           <Text style={[styles.cardLabel, { color: colors.primary }]}>ACTIVE LANE</Text>
           <View style={styles.laneGrid}>
             <View style={styles.laneCell}>
-              <Text style={styles.laneCellKey}>TOURNAMENT</Text>
+              <Text style={[styles.laneCellKey, { color: scheme === 'dark' ? 'rgba(255,255,255,0.4)' : colors.textSecondary }]}>TOURNAMENT</Text>
               <Text style={[styles.laneCellVal, { color: colors.text }]} numberOfLines={1}>
                 {activeTournament?.name || '—'}
               </Text>
             </View>
             <View style={styles.laneCell}>
-              <Text style={styles.laneCellKey}>EVENT</Text>
+              <Text style={[styles.laneCellKey, { color: scheme === 'dark' ? 'rgba(255,255,255,0.4)' : colors.textSecondary }]}>EVENT</Text>
               <Text style={[styles.laneCellVal, { color: colors.text }]}>
                 {activeEvent?.puzzleTypeName || '—'}
               </Text>
             </View>
             <View style={styles.laneCell}>
-              <Text style={styles.laneCellKey}>ROUND</Text>
+              <Text style={[styles.laneCellKey, { color: scheme === 'dark' ? 'rgba(255,255,255,0.4)' : colors.textSecondary }]}>ROUND</Text>
               <Text style={[styles.laneCellVal, { color: colors.text }]}>Round {laneConfig.roundNumber}</Text>
             </View>
             <View style={styles.laneCell}>
-              <Text style={styles.laneCellKey}>GROUP</Text>
+              <Text style={[styles.laneCellKey, { color: scheme === 'dark' ? 'rgba(255,255,255,0.4)' : colors.textSecondary }]}>GROUP</Text>
               <Text style={[styles.laneCellVal, { color: colors.text }]}>Group {laneConfig.groupNumber}</Text>
             </View>
             <View style={styles.laneCell}>
-              <Text style={styles.laneCellKey}>STATION</Text>
-              <Text style={[styles.laneCellVal, { color: colors.accent }]}>Station {laneConfig.stationNumber}</Text>
+              <Text style={[styles.laneCellKey, { color: scheme === 'dark' ? 'rgba(255,255,255,0.4)' : colors.textSecondary }]}>STATION</Text>
+              <Text style={[styles.laneCellVal, { color: scheme === 'dark' ? colors.accent : colors.primary }]}>Station {laneConfig.stationNumber}</Text>
             </View>
           </View>
           <Text style={[styles.statusMsg, { color: colors.textSecondary }]}>{statusMessage}</Text>
@@ -113,36 +114,56 @@ export default function JudgeStationTab({
         /* Lane configuration form */
         <View style={[styles.card, { backgroundColor: colors.backgroundElement, borderColor: colors.border }]}>
           <View style={styles.cardHeaderRow}>
-            <MaterialCommunityIcons name="cog-outline" size={14} color={colors.accent} />
-            <Text style={[styles.cardLabel, { color: colors.accent }]}>LANE CONFIGURATION</Text>
+            <MaterialCommunityIcons name="cog-outline" size={14} color={scheme === 'dark' ? colors.accent : colors.primary} />
+            <Text style={[styles.cardLabel, { color: scheme === 'dark' ? colors.accent : colors.primary }]}>LANE CONFIGURATION</Text>
           </View>
 
           <Text style={[styles.fieldLabel, { color: colors.textSecondary }]}>Tournament</Text>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipRow}>
-            {tournaments.map(t => (
-              <TouchableOpacity
-                key={t.id}
-                style={[styles.chip, selectedTournamentId === t.id && { backgroundColor: colors.primary }]}
-                onPress={() => setSelectedTournamentId(t.id)}
-              >
-                <Text style={[styles.chipText, { color: colors.text }]} numberOfLines={1}>{t.name}</Text>
-              </TouchableOpacity>
-            ))}
+            {tournaments.map(t => {
+              const isSelected = selectedTournamentId === t.id;
+              return (
+                <TouchableOpacity
+                  key={t.id}
+                  style={[
+                    styles.chip,
+                    {
+                      backgroundColor: isSelected
+                        ? colors.primary
+                        : (scheme === 'dark' ? '#1e2030' : '#e2e8f0'),
+                    }
+                  ]}
+                  onPress={() => setSelectedTournamentId(t.id)}
+                >
+                  <Text style={[styles.chipText, { color: isSelected ? '#ffffff' : colors.text }]} numberOfLines={1}>{t.name}</Text>
+                </TouchableOpacity>
+              );
+            })}
           </ScrollView>
 
           <Text style={[styles.fieldLabel, { color: colors.textSecondary, marginTop: 10 }]}>Event</Text>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipRow}>
-            {activeTournament?.events?.map((e: any) => (
-              <TouchableOpacity
-                key={e.id}
-                style={[styles.chip, selectedEventId === e.id && { backgroundColor: colors.primary }]}
-                onPress={() => setSelectedEventId(e.id)}
-              >
-                <Text style={[styles.chipText, { color: colors.text }]}>
-                  {e.puzzleTypeName} ({e.eventFormatCode})
-                </Text>
-              </TouchableOpacity>
-            ))}
+            {activeTournament?.events?.map((e: any) => {
+              const isSelected = selectedEventId === e.id;
+              return (
+                <TouchableOpacity
+                  key={e.id}
+                  style={[
+                    styles.chip,
+                    {
+                      backgroundColor: isSelected
+                        ? colors.primary
+                        : (scheme === 'dark' ? '#1e2030' : '#e2e8f0'),
+                    }
+                  ]}
+                  onPress={() => setSelectedEventId(e.id)}
+                >
+                  <Text style={[styles.chipText, { color: isSelected ? '#ffffff' : colors.text }]}>
+                    {e.puzzleTypeName} ({e.eventFormatCode})
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
           </ScrollView>
 
           <View style={styles.numberRow}>
