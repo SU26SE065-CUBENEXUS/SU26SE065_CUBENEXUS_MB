@@ -133,4 +133,5 @@ export interface JudgeHistoryRecord {
   finalTimeMs: number | null;
   isDnf: boolean;
   submittedAt: string;
+  evidencePhotoUrl?: string | null;
 }

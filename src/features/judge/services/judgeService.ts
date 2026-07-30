@@ -45,6 +45,36 @@ import {
   updateCompetitor,
 } from './judgeStore';
 
+function parseJwtClaims(token: string): Record<string, any> | null {
+  try {
+    const parts = token.split('.');
+    if (parts.length < 2) return null;
+    const base64Url = parts[1];
+    const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/=';
+    let str = base64.replace(/=+$/, '');
+    let output = '';
+    for (
+      let bc = 0, bs = 0, rbuffer, idx = 0;
+      (rbuffer = str.charAt(idx++));
+      ~rbuffer && ((bs = bc % 4 ? bs * 64 + rbuffer : rbuffer), bc++ % 4)
+        ? (output += String.fromCharCode(255 & (bs >> ((-2 * bc) & 6))))
+        : 0
+    ) {
+      rbuffer = chars.indexOf(rbuffer);
+    }
+    const jsonPayload = decodeURIComponent(
+      output
+        .split('')
+        .map(c => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2))
+        .join('')
+    );
+    return JSON.parse(jsonPayload);
+  } catch {
+    return null;
+  }
+}
+
 function deriveBackendStatus(submittedCount: number, solveCount: number, explicitStatus?: string | null): JudgeRosterBackendStatus {
   const normalized = explicitStatus?.toUpperCase();
   if (normalized === 'ABSENT' || normalized === 'DNS') {
@@ -135,7 +165,7 @@ export function useJudgeLaneConfig(token: string | null) {
   const [selectedTournamentId, setSelectedTournamentId] = useState('');
   const [selectedEventId, setSelectedEventId] = useState('');
   const [roundNumber, setRoundNumber] = useState('1');
-  const [groupNumber, setGroupNumber] = useState('1');
+  const [groupNumber, setGroupNumber] = useState('0'); // Default to 0 (ALL GROUPS)
   const [stationNumber, setStationNumber] = useState('1');
 
   const [activeTournament, setActiveTournamentState] = useState<any | null>(null);
@@ -146,7 +176,7 @@ export function useJudgeLaneConfig(token: string | null) {
   const [hubConnection, setHubConnection] = useState<signalR.HubConnection | null>(null);
   const [isHubConnected, setIsHubConnected] = useState(false);
   const [hubStatus, setHubStatus] = useState<'Disconnected' | 'Connecting' | 'Connected' | 'Failed'>('Disconnected');
-  const [statusMessage, setStatusMessage] = useState('Configure lane and click Register Lane Connection.');
+  const [statusMessage, setStatusMessage] = useState('Vui lòng chọn Vòng thi và bấm Kết Nối Vòng.');
 
   const [laneConfigState, setLaneConfigState] = useState<JudgeLaneConfig | null>(getLaneConfig());
 
@@ -167,6 +197,19 @@ export function useJudgeLaneConfig(token: string | null) {
     }
     loadTournaments();
   }, []);
+
+  useEffect(() => {
+    if (!token) return;
+    const payload = parseJwtClaims(token);
+    if (payload) {
+      if (payload.station_number) {
+        setStationNumber(String(payload.station_number));
+      }
+      if (payload.tournament_id && tournaments.some(t => t.id === payload.tournament_id)) {
+        setSelectedTournamentId(payload.tournament_id);
+      }
+    }
+  }, [token, tournaments]);
 
   useEffect(() => {
     if (!selectedTournamentId) return;
@@ -223,13 +266,13 @@ export function useJudgeLaneConfig(token: string | null) {
       }
       setIsHubConnected(false);
       setHubStatus('Disconnected');
-      setStatusMessage('Station context changed. Register lane connection again to reload roster.');
+      setStatusMessage('Thông tin vòng thi thay đổi. Vui lòng bấm Kết Nối lại.');
     }
   }, [selectedTournamentId, selectedEventId, roundNumber, groupNumber, stationNumber, hubConnection]);
 
   const loadStationRoster = useCallback(async (config: JudgeLaneConfig) => {
     if (!token) {
-      throw new Error('Authorization required. Please log in again.');
+      throw new Error('Yêu cầu đăng nhập lại.');
     }
     setIsLoadingRoster(true);
     try {
@@ -245,8 +288,8 @@ export function useJudgeLaneConfig(token: string | null) {
       setStationQueue(roster);
       setStatusMessage(
         roster.length > 0
-          ? `Connected. Loaded ${roster.length} competitors for Group ${config.groupNumber}, Station ${config.stationNumber}.`
-          : `Connected. No competitors assigned yet for Group ${config.groupNumber}, Station ${config.stationNumber}.`
+          ? `Đã kết nối thành công! Đã tải danh sách ${roster.length} đấu thủ tại Trạm ${config.stationNumber}.`
+          : `Đã kết nối thành công. Hiện chưa có đấu thủ thi đấu tại Trạm ${config.stationNumber}.`
       );
       return roster;
     } finally {
@@ -262,8 +305,8 @@ export function useJudgeLaneConfig(token: string | null) {
       setHubStatus('Disconnected');
     }
 
-    if (!selectedEventId || !roundNumber || !groupNumber || !stationNumber) {
-      setStatusMessage('Missing lane configurations.');
+    if (!selectedEventId || !roundNumber || !stationNumber) {
+      setStatusMessage('Chưa chọn đầy đủ thông tin Vòng thi.');
       return;
     }
 
@@ -271,7 +314,7 @@ export function useJudgeLaneConfig(token: string | null) {
       tournamentId: selectedTournamentId,
       eventId: selectedEventId,
       roundNumber: Number(roundNumber),
-      groupNumber: Number(groupNumber),
+      groupNumber: Number(groupNumber || 0),
       stationNumber: Number(stationNumber),
     };
 
@@ -318,8 +361,8 @@ export function useJudgeLaneConfig(token: string | null) {
       const missingRosterApi = err?.status === 404 && String(err.message || '').includes('station-roster');
       setStatusMessage(
         missingRosterApi
-          ? 'Lane connected, but backend is missing station roster API `/api/tournament-operation/judge/station-roster`.'
-          : `Connection failed: ${err.message || err}`
+          ? 'Đã kết nối tín hiệu nhưng server chưa trả về danh sách thí sinh.'
+          : `Kết nối không thành công: ${err.message || err}`
       );
     }
   }, [
@@ -341,12 +384,12 @@ export function useJudgeLaneConfig(token: string | null) {
     }
     setIsHubConnected(false);
     setHubStatus('Disconnected');
-    setStatusMessage('Configure lane and click Register Lane Connection.');
+    setStatusMessage('Đã ngắt kết nối. Vui lòng chọn Vòng thi và bấm Kết Nối lại.');
     clearLaneConnection();
     setLaneConfigState(null);
   }, [hubConnection]);
 
-  const isConfigComplete = selectedTournamentId && selectedEventId && roundNumber && groupNumber && stationNumber;
+  const isConfigComplete = Boolean(selectedTournamentId && selectedEventId && roundNumber && stationNumber);
 
   return {
     tournaments,
@@ -413,12 +456,18 @@ export function useJudgeStationQueue(token: string | null) {
         qrToken,
         eventId: config.eventId,
         roundNumber: config.roundNumber,
-        groupNumber: config.groupNumber,
+        groupNumber: config.groupNumber || 0,
         stationNumber: config.stationNumber,
       }, authToken);
 
       if (!res.success || !res.groupCompetitorId) {
-        return { success: false, message: res.message || 'Verification failed.' };
+        return {
+          success: false,
+          errorCode: res.errorCode || '',
+          message: res.message?.includes('Group')
+            ? 'Không tìm thấy nhóm thi đấu của thí sinh trong vòng này.'
+            : res.message || 'Xác nhận không thành công.',
+        };
       }
 
       const rosterCompetitor = getStationQueue().find(item => item.groupCompetitorId === res.groupCompetitorId);
@@ -601,15 +650,35 @@ export function useJudgeScoring(
     loadProgress();
   }, [loadProgress]);
 
+  const [evidencePhotos, setEvidencePhotos] = useState<string[]>([]);
+
   const resetDraft = () => {
     setStackmat('');
     setPenalty('None');
     setDrawingPoints([]);
     setSignName('');
+    setEvidencePhotos([]);
   };
+
+  const addEvidencePhoto = (photoDataUri: string) => {
+    if (!photoDataUri) return;
+    const trimmed = photoDataUri.trim();
+    if (trimmed.startsWith('file://') || trimmed.startsWith('content://') || trimmed.startsWith('ph://')) {
+      console.warn('[judgeService] Rejected local file URI in addEvidencePhoto:', trimmed.substring(0, 50));
+      return;
+    }
+    setEvidencePhotos(prev => [...prev, trimmed]);
+  };
+
+  const removeEvidencePhoto = (index: number) => {
+    setEvidencePhotos(prev => prev.filter((_, i) => i !== index));
+  };
+
 
   const submitScore = async (): Promise<{ success: boolean; hasNextSolve: boolean; message?: string }> => {
     if (!token) return { success: false, hasNextSolve: false, message: 'Session expired.' };
+
+    console.log('[Mobile SubmitScore] evidencePhotos count:', evidencePhotos.length, evidencePhotos.length > 0 ? evidencePhotos[0].substring(0, 60) : 'NULL');
 
     setIsSubmitting(true);
     try {
@@ -633,6 +702,7 @@ export function useJudgeScoring(
           groupCompetitorId,
           solveNumber: activeSolveNumber,
           esignatureData: esignature,
+          evidencePhotoData: evidencePhotos.length > 0 ? evidencePhotos[0] : null,
           details: detailsPayload,
         }, token);
       } else {
@@ -651,6 +721,7 @@ export function useJudgeScoring(
           penaltyTypeId: matchedPenalty?.id || null,
           scrambleId: currentScramble.scrambleId,
           esignatureData: esignature,
+          evidencePhotoData: evidencePhotos.length > 0 ? evidencePhotos[0] : null,
         }, token);
       }
 
@@ -664,6 +735,7 @@ export function useJudgeScoring(
         finalTimeMs: formatType === 'MEDLEY' ? null : Math.round((parseFloat(stackmat || '0') || 0) * 1000),
         isDnf: penalty === 'DNF',
         submittedAt: new Date().toISOString(),
+        evidencePhotoUrl: evidencePhotos.length > 0 ? evidencePhotos[0] : null,
       });
 
       await loadProgress();
@@ -715,6 +787,10 @@ export function useJudgeScoring(
     setMedleySolves,
     penaltyTypes,
     isLoading,
+    evidencePhotos,
+    setEvidencePhotos,
+    addEvidencePhoto,
+    removeEvidencePhoto,
     submitScore,
     loadProgress,
     prepareNextSolve,

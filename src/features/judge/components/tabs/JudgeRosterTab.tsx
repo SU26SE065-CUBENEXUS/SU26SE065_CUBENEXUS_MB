@@ -12,24 +12,24 @@ interface Props {
 
 function getDisplayState(competitor: JudgeStationCompetitor): { label: string; color: string; background: string } {
   if (competitor.sessionState === 'ISSUE') {
-    return { label: 'ISSUE', color: '#ef4444', background: '#ef444412' };
+    return { label: 'CÓ LỖI', color: '#ef4444', background: '#ef444412' };
   }
   if (competitor.sessionState === 'SCORING') {
-    return { label: 'SCORING', color: Colors.dark.primary, background: Colors.dark.primary + '12' };
+    return { label: 'ĐANG CHẤM', color: Colors.dark.primary, background: Colors.dark.primary + '12' };
   }
   if (competitor.sessionState === 'VERIFIED') {
-    return { label: 'VERIFIED', color: '#f59e0b', background: '#f59e0b12' };
+    return { label: 'ĐÃ XÁC NHẬN', color: '#f59e0b', background: '#f59e0b12' };
   }
   if (competitor.backendStatus === 'DONE') {
-    return { label: 'DONE', color: '#10b981', background: '#10b98112' };
+    return { label: 'HOÀN THÀNH', color: '#10b981', background: '#10b98112' };
   }
   if (competitor.backendStatus === 'PARTIAL') {
-    return { label: 'PARTIAL', color: '#38bdf8', background: '#38bdf812' };
+    return { label: 'ĐANG THI', color: '#38bdf8', background: '#38bdf812' };
   }
   if (competitor.backendStatus === 'ABSENT' || competitor.backendStatus === 'DNS') {
     return { label: competitor.backendStatus, color: '#ef4444', background: '#ef444412' };
   }
-  return { label: 'WAITING', color: Colors.dark.textSecondary, background: 'rgba(255,255,255,0.05)' };
+  return { label: 'CHỜ QUÉT MÃ', color: Colors.dark.textSecondary, background: 'rgba(255,255,255,0.05)' };
 }
 
 export default function JudgeRosterTab({
@@ -43,9 +43,9 @@ export default function JudgeRosterTab({
     return (
       <View style={styles.emptyWrap}>
         <MaterialCommunityIcons name="account-group-outline" size={40} color={colors.border} />
-        <Text style={[styles.emptyTitle, { color: colors.textSecondary }]}>No Competitors Loaded</Text>
+        <Text style={[styles.emptyTitle, { color: colors.textSecondary }]}>Chưa Có Danh Sách Thí Sinh</Text>
         <Text style={[styles.emptySub, { color: colors.textSecondary }]}>
-          Register lane connection first. Roster must come from backend assignment for the active Group and Station.
+          Vui lòng sang tab Cấu Hình để kết nối Vòng thi. Danh sách đấu thủ sẽ tự động tải theo trạm được phân công.
         </Text>
       </View>
     );
@@ -56,7 +56,7 @@ export default function JudgeRosterTab({
       <View style={[styles.sessionNotice, { backgroundColor: colors.backgroundElement, borderColor: colors.border }]}>
         <MaterialCommunityIcons name="information-outline" size={11} color={colors.textSecondary} />
         <Text style={[styles.sessionNoticeText, { color: colors.textSecondary }]}>
-          Backend roster loaded | {queue.length} competitor{queue.length !== 1 ? 's' : ''} in this Group/Station
+          Danh sách thi đấu chính thức | {queue.length} đấu thủ tại Trạm này
         </Text>
       </View>
 
@@ -86,7 +86,7 @@ export default function JudgeRosterTab({
                   </Text>
                   {isSelected && (
                     <View style={[styles.selectedBadge, { backgroundColor: colors.primary + '20', borderColor: colors.primary + '40' }]}>
-                      <Text style={[styles.selectedBadgeText, { color: colors.primary }]}>SELECTED</Text>
+                      <Text style={[styles.selectedBadgeText, { color: colors.primary }]}>ĐANG CHỌN</Text>
                     </View>
                   )}
                 </View>
@@ -94,8 +94,8 @@ export default function JudgeRosterTab({
                   {item.groupName} | Station {item.stationNumber} | {item.solveProgress}
                 </Text>
                 <Text style={[styles.rosterTime, { color: colors.textSecondary }]}>
-                  Submitted {item.submittedSolveCount}/{item.totalSolveCount}
-                  {item.lastScannedAt ? ` | Verified ${new Date(item.lastScannedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}` : ''}
+                  Đã hoàn thành {item.submittedSolveCount}/{item.totalSolveCount} lượt thi
+                  {item.lastScannedAt ? ` | Quét lúc ${new Date(item.lastScannedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}` : ''}
                 </Text>
               </View>
 
@@ -109,11 +109,11 @@ export default function JudgeRosterTab({
                     style={[styles.scoreBtn, { backgroundColor: colors.primary }]}
                     onPress={() => onSelectCompetitor(item)}
                   >
-                    <Text style={styles.scoreBtnText}>Score</Text>
+                    <Text style={styles.scoreBtnText}>Chấm Điểm</Text>
                   </TouchableOpacity>
                 ) : (
                   <Text style={[styles.verifyHint, { color: colors.textSecondary }]}>
-                    {item.backendStatus === 'DONE' ? 'Completed' : 'Scan QR to verify'}
+                    {item.backendStatus === 'DONE' ? 'Đã Xong' : 'Quét QR xác nhận'}
                   </Text>
                 )}
               </View>

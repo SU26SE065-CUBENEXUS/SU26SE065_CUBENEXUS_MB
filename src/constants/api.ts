@@ -17,6 +17,7 @@ export interface ScrambleInfoDto {
 export interface VerifyJudgeStationResponseDto {
   success: boolean;
   message: string;
+  errorCode?: string;
   groupCompetitorId?: string;
   eventId?: string;
   eventName: string;
@@ -60,6 +61,8 @@ export interface SubmitTraditionalResultDto {
   penaltyTypeId?: string | null;
   scrambleId: string;
   esignatureData?: string | null;
+  evidencePhotoData?: string | null;
+  evidencePhotoUrl?: string | null;
 }
 
 export interface MedleyDetailSubmissionDto {
@@ -73,6 +76,8 @@ export interface SubmitMedleyResultDto {
   groupCompetitorId: string;
   solveNumber: number;
   esignatureData?: string | null;
+  evidencePhotoData?: string | null;
+  evidencePhotoUrl?: string | null;
   details: MedleyDetailSubmissionDto[];
 }
 
@@ -185,8 +190,8 @@ export async function getJudgeStationRoster(
   const query = new URLSearchParams({
     eventId,
     roundNumber: String(roundNumber),
-    groupNumber: String(groupNumber),
     stationNumber: String(stationNumber),
+    groupNumber: String(groupNumber || 0),
   });
 
   return apiFetch<JudgeStationRosterResponseDto>(
@@ -240,6 +245,7 @@ export interface ConnectMobileTimerResponse {
   matchId: string;
   statusCode: string;
   playerId: string;
+  sessionId: string;
   player1TimerReady: boolean;
   player2TimerReady: boolean;
   deviceInfo: string | null;

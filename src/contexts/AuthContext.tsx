@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { Platform } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { API_BASE_URL } from '@/constants/config';
 
 export interface AuthUser {
@@ -7,6 +8,9 @@ export interface AuthUser {
   email: string;
   displayName: string;
   role: string;
+  judgeRoleCode?: string | null;
+  assignedStationNumber?: number | null;
+  assignedTournamentId?: string | null;
 }
 
 interface AuthContextValue {
@@ -83,8 +87,11 @@ function buildUserFromToken(token: string): AuthUser | null {
 
   const email = (payload['email'] as string) || '';
   const displayName = (payload['display_name'] as string) || '';
+  const judgeRoleCode = (payload['judge_role'] as string) || null;
+  const assignedStationNumber = payload['station_number'] ? parseInt(String(payload['station_number']), 10) : null;
+  const assignedTournamentId = (payload['tournament_id'] as string) || null;
 
-  return { id, email, displayName, role };
+  return { id, email, displayName, role, judgeRoleCode, assignedStationNumber, assignedTournamentId };
 }
 
 // ---------- Cross-Platform Persistent Storage Engine ----------
@@ -92,33 +99,38 @@ const memoryStorage: Record<string, string> = {};
 const isWeb = Platform.OS === 'web';
 
 const storage = {
-  getItem: (key: string): string | null => {
+  getItem: async (key: string): Promise<string | null> => {
     try {
       if (isWeb && typeof window !== 'undefined') {
         return localStorage.getItem(key);
       }
+      return await AsyncStorage.getItem(key);
     } catch (e) {
-      console.warn('Storage not available', e);
+      console.warn('Storage getItem error', e);
     }
     return memoryStorage[key] || null;
   },
-  setItem: (key: string, value: string): void => {
+  setItem: async (key: string, value: string): Promise<void> => {
     try {
       if (isWeb && typeof window !== 'undefined') {
         localStorage.setItem(key, value);
+      } else {
+        await AsyncStorage.setItem(key, value);
       }
     } catch (e) {
-      console.warn('Storage not available', e);
+      console.warn('Storage setItem error', e);
     }
     memoryStorage[key] = value;
   },
-  removeItem: (key: string): void => {
+  removeItem: async (key: string): Promise<void> => {
     try {
       if (isWeb && typeof window !== 'undefined') {
         localStorage.removeItem(key);
+      } else {
+        await AsyncStorage.removeItem(key);
       }
     } catch (e) {
-      console.warn('Storage not available', e);
+      console.warn('Storage removeItem error', e);
     }
     delete memoryStorage[key];
   }
@@ -132,17 +144,25 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   // Restore session from storage on mount
   useEffect(() => {
-    const savedToken = storage.getItem('mobile_access_token');
-    if (savedToken) {
-      const parsedUser = buildUserFromToken(savedToken);
-      if (parsedUser) {
-        setUser(parsedUser);
-        setAccessToken(savedToken);
-      } else {
-        storage.removeItem('mobile_access_token');
+    const restoreSession = async () => {
+      try {
+        const savedToken = await storage.getItem('mobile_access_token');
+        if (savedToken) {
+          const parsedUser = buildUserFromToken(savedToken);
+          if (parsedUser) {
+            setUser(parsedUser);
+            setAccessToken(savedToken);
+          } else {
+            await storage.removeItem('mobile_access_token');
+          }
+        }
+      } catch (e) {
+        console.error('Failed to restore session:', e);
+      } finally {
+        setIsLoading(false);
       }
-    }
-    setIsLoading(false);
+    };
+    restoreSession();
   }, []);
 
   const login = useCallback(async (email: string, password: string) => {
@@ -176,13 +196,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       throw new Error('Access Denied. Only competitors and judges are authorized on mobile.');
     }
 
-    storage.setItem('mobile_access_token', token);
+    await storage.setItem('mobile_access_token', token);
     setUser(parsedUser);
     setAccessToken(token);
   }, []);
 
   const logout = useCallback(() => {
-    storage.removeItem('mobile_access_token');
+    storage.removeItem('mobile_access_token').catch(e => console.error(e));
     setUser(null);
     setAccessToken(null);
   }, []);

@@ -3,6 +3,7 @@ import {
   ActivityIndicator,
   Alert,
   GestureResponderEvent,
+  Image,
   ScrollView,
   StyleSheet,
   Text,
@@ -11,6 +12,8 @@ import {
   View,
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import * as ImagePicker from 'expo-image-picker';
+import * as FileSystem from 'expo-file-system';
 import { Colors } from '@/constants/theme';
 import { JudgeStationCompetitor, PenaltyMode } from '../../types';
 import { useJudgeScoring } from '../../services/judgeService';
@@ -62,10 +65,161 @@ export default function JudgeScoreTab({
     medleySolves,
     setMedleySolves,
     isLoading,
+    evidencePhotos,
+    setEvidencePhotos,
+    addEvidencePhoto,
+    removeEvidencePhoto,
     submitScore,
     prepareNextSolve,
     leaveScoreScreen,
   } = useJudgeScoring(groupCompetitorId, token, formatType);
+
+  const convertAssetToBase64 = async (asset: ImagePicker.ImagePickerAsset): Promise<string | null> => {
+    const rawMime = (asset.mimeType || '').toLowerCase();
+    // Normalize iPhone HEIC/HEIF/QuickTime formats to standard image/jpeg
+    const mimeType = rawMime.includes('heic') || rawMime.includes('heif') || rawMime.includes('quicktime') || !rawMime
+      ? 'image/jpeg'
+      : asset.mimeType;
+
+    // Pass 1: Expo ImagePicker base64 property
+    if (asset.base64 && asset.base64.length > 0) {
+      return `data:${mimeType};base64,${asset.base64}`;
+    }
+
+    if (!asset.uri) return null;
+
+    // Pass 2: expo-file-system readAsStringAsync
+    try {
+      const b64 = await FileSystem.readAsStringAsync(asset.uri, {
+        encoding: 'base64' as any,
+      });
+      if (b64 && b64.length > 0) {
+        return `data:${mimeType};base64,${b64}`;
+      }
+    } catch (fsErr) {
+      console.warn('[JudgeScoreTab] FileSystem.readAsStringAsync failed:', fsErr);
+    }
+
+    // Pass 3: fetch API + FileReader blob conversion (handles Android content:// and iOS ph:// URIs)
+    try {
+      const response = await fetch(asset.uri);
+      const blob = await response.blob();
+      const dataUri = await new Promise<string | null>((resolve) => {
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          const res = reader.result as string;
+          if (res && res.startsWith('data:image')) {
+            resolve(res);
+          } else if (res && res.includes(',')) {
+            resolve(`data:${mimeType};base64,${res.split(',')[1]}`);
+          } else {
+            resolve(null);
+          }
+        };
+        reader.onerror = () => resolve(null);
+        reader.readAsDataURL(blob);
+      });
+      if (dataUri) return dataUri;
+    } catch (fetchErr) {
+      console.warn('[JudgeScoreTab] fetch blob conversion failed:', fetchErr);
+    }
+
+    return null;
+  };
+
+  const handleTakePhoto = async () => {
+    try {
+      const permissionResult = await ImagePicker.requestCameraPermissionsAsync();
+      if (!permissionResult.granted) {
+        Alert.alert('Quyền máy ảnh', 'Ứng dụng cần quyền sử dụng máy ảnh để chụp ảnh minh chứng.');
+        return;
+      }
+      const result = await ImagePicker.launchCameraAsync({
+        mediaTypes: ['images'],
+        quality: 0.7,
+        base64: true,
+        preferredAssetRepresentationMode: ImagePicker.UIImagePickerPreferredAssetRepresentationMode.Compatible,
+      });
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        const dataUri = await convertAssetToBase64(result.assets[0]);
+        if (dataUri) {
+          addEvidencePhoto(dataUri);
+        } else {
+          Alert.alert('Lỗi ảnh', 'Không thể đọc dữ liệu ảnh chụp. Vui lòng thử chọn lại.');
+        }
+      }
+    } catch (err: any) {
+      Alert.alert('Lỗi máy ảnh', err.message || 'Không thể mở máy ảnh.');
+    }
+  };
+
+  const handlePickMultiplePhotos = async () => {
+    try {
+      const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (!permissionResult.granted) {
+        Alert.alert('Quyền truy cập', 'Ứng dụng cần quyền truy cập thư viện ảnh để đính kèm minh chứng.');
+        return;
+      }
+
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ['images'],
+        allowsMultipleSelection: true,
+        quality: 0.7,
+        base64: true,
+        preferredAssetRepresentationMode: ImagePicker.UIImagePickerPreferredAssetRepresentationMode.Compatible,
+      });
+
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        for (const asset of result.assets) {
+          try {
+            const dataUri = await convertAssetToBase64(asset);
+            if (!dataUri) {
+              console.warn('[JudgeScoreTab] Could not convert photo to base64, skipping:', asset.uri);
+              Alert.alert('Lỗi ảnh', 'Không thể đọc tệp ảnh này. Vui lòng chọn ảnh khác.');
+              continue;
+            }
+            addEvidencePhoto(dataUri);
+          } catch (assetErr) {
+            console.warn('[JudgeScoreTab] Failed to process photo asset:', assetErr);
+          }
+        }
+      }
+    } catch (err: any) {
+      if (typeof document !== 'undefined') {
+        const input = document.createElement('input');
+        input.type = 'file';
+        input.accept = 'image/*';
+        input.multiple = true;
+        input.onchange = (e: any) => {
+          const files: File[] = Array.from(e.target.files || []);
+          files.forEach(file => {
+            const reader = new FileReader();
+            reader.onload = (event) => {
+              if (event.target?.result) {
+                addEvidencePhoto(event.target.result as string);
+              }
+            };
+            reader.readAsDataURL(file);
+          });
+        };
+        input.click();
+      } else {
+        Alert.alert('Lỗi chọn ảnh', err.message || 'Không thể mở thư viện ảnh.');
+      }
+    }
+  };
+
+  const handleSelectPhotoSource = () => {
+    Alert.alert(
+      'Đính Kèm Ảnh Minh Chứng',
+      'Vui lòng chọn nguồn ảnh:',
+      [
+        { text: '📷 Chụp Ảnh Trực Tiếp', onPress: handleTakePhoto },
+        { text: '🖼️ Chọn Từ Thư Viện', onPress: handlePickMultiplePhotos },
+        { text: 'Hủy', style: 'cancel' },
+      ]
+    );
+  };
 
   const finalTime = useMemo(() => {
     if (penalty === 'DNF') return 'DNF';
@@ -138,12 +292,12 @@ export default function JudgeScoreTab({
     return (
       <View style={styles.emptyWrap}>
         <MaterialCommunityIcons name="timer-off-outline" size={40} color={colors.border} />
-        <Text style={[styles.emptyTitle, { color: colors.textSecondary }]}>No Competitor Selected</Text>
+        <Text style={[styles.emptyTitle, { color: colors.textSecondary }]}>Chưa Chọn Thí Sinh Chấm Điểm</Text>
         <Text style={[styles.emptySub, { color: colors.textSecondary }]}>
-          Select a verified competitor from the Roster tab to begin scoring.
+          Vui lòng quét mã QR hoặc chọn thí sinh từ mục Danh Sách để tiến hành nhập điểm.
         </Text>
         <TouchableOpacity style={[styles.goRosterBtn, { borderColor: colors.border }]} onPress={onGoToRoster}>
-          <Text style={[styles.goRosterText, { color: colors.primary }]}>Go to Roster</Text>
+          <Text style={[styles.goRosterText, { color: colors.primary }]}>Mở Danh Sách Thí Sinh</Text>
         </TouchableOpacity>
       </View>
     );
@@ -153,7 +307,7 @@ export default function JudgeScoreTab({
     return (
       <View style={styles.loaderWrap}>
         <ActivityIndicator size="large" color={colors.primary} />
-        <Text style={[styles.loaderText, { color: colors.textSecondary }]}>Loading solve info...</Text>
+        <Text style={[styles.loaderText, { color: colors.textSecondary }]}>Đang nạp thông tin lượt thi…</Text>
       </View>
     );
   }
@@ -162,12 +316,12 @@ export default function JudgeScoreTab({
     return (
       <View style={styles.emptyWrap}>
         <MaterialCommunityIcons name="check-decagram" size={40} color="#10b981" />
-        <Text style={[styles.emptyTitle, { color: colors.text }]}>Competitor Already Completed</Text>
+        <Text style={[styles.emptyTitle, { color: colors.text }]}>Thí Sinh Đã Hoàn Thành Các Lượt Thi</Text>
         <Text style={[styles.emptySub, { color: colors.textSecondary }]}>
-          Backend reports {selectedCompetitor.submittedSolveCount}/{selectedCompetitor.totalSolveCount} solves submitted.
+          Hệ thống ghi nhận thí sinh đã hoàn thành {selectedCompetitor.submittedSolveCount}/{selectedCompetitor.totalSolveCount} lượt thi.
         </Text>
         <TouchableOpacity style={[styles.goRosterBtn, { borderColor: colors.border }]} onPress={handleBackToRoster}>
-          <Text style={[styles.goRosterText, { color: colors.primary }]}>Back to Roster</Text>
+          <Text style={[styles.goRosterText, { color: colors.primary }]}>Trở Về Danh Sách Thí Sinh</Text>
         </TouchableOpacity>
       </View>
     );
@@ -177,34 +331,34 @@ export default function JudgeScoreTab({
     return (
       <View style={styles.successWrap}>
         <MaterialCommunityIcons name="check-decagram" size={64} color="#10b981" />
-        <Text style={[styles.successTitle, { color: colors.text }]}>Result Submitted</Text>
+        <Text style={[styles.successTitle, { color: colors.text }]}>Đã Lưu Kết Quả Thi Đấu</Text>
         <Text style={[styles.successSub, { color: colors.textSecondary }]}>
-          Score saved to backend. Continue with the same competitor or move to another tab.
+          Kết quả lượt thi đã được xác nhận và lưu vào hệ thống thành công.
         </Text>
 
         <View style={[styles.successBox, { backgroundColor: colors.backgroundElement, borderColor: colors.border }]}>
           <View style={styles.successRow}>
-            <Text style={[styles.successLabel, { color: colors.textSecondary }]}>Competitor</Text>
+            <Text style={[styles.successLabel, { color: colors.textSecondary }]}>Đấu Thủ</Text>
             <Text style={[styles.successVal, { color: colors.text }]}>{selectedCompetitor.competitorName}</Text>
           </View>
           <View style={styles.successRow}>
-            <Text style={[styles.successLabel, { color: colors.textSecondary }]}>Submitted</Text>
-            <Text style={[styles.successVal, { color: colors.text }]}>{submittedSolveCount}/{totalSolveCount}</Text>
+            <Text style={[styles.successLabel, { color: colors.textSecondary }]}>Tiến Trình</Text>
+            <Text style={[styles.successVal, { color: colors.text }]}>{submittedSolveCount}/{totalSolveCount} lượt thi</Text>
           </View>
         </View>
 
         <View style={{ gap: 10, width: '100%' }}>
           {hasNextSolve && (
             <TouchableOpacity style={[styles.primaryBtn, { backgroundColor: colors.primary }]} onPress={handleSaveContinue}>
-              <Text style={styles.primaryBtnText}>Save and Continue Next Solve</Text>
+              <Text style={styles.primaryBtnText}>Lưu & Chấm Lượt Tiếp Theo</Text>
               <MaterialCommunityIcons name="chevron-right" size={16} color="#fff" />
             </TouchableOpacity>
           )}
           <TouchableOpacity style={[styles.secondaryBtn, { borderColor: colors.border }]} onPress={handleBackToRoster}>
-            <Text style={[styles.secondaryBtnText, { color: colors.text }]}>Save and Back to Competitor</Text>
+            <Text style={[styles.secondaryBtnText, { color: colors.text }]}>Lưu & Trở Về Danh Sách Thí Sinh</Text>
           </TouchableOpacity>
           <TouchableOpacity style={[styles.secondaryBtn, { borderColor: colors.border }]} onPress={handleBackToScan}>
-            <Text style={[styles.secondaryBtnText, { color: colors.text }]}>Save and Scan Next Competitor</Text>
+            <Text style={[styles.secondaryBtnText, { color: colors.text }]}>Lưu & Quét Thí Sinh Tiếp Theo</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -216,28 +370,28 @@ export default function JudgeScoreTab({
       <View style={styles.topActions}>
         <TouchableOpacity style={[styles.topActionBtn, { borderColor: colors.border }]} onPress={handleBackToRoster}>
           <MaterialCommunityIcons name="arrow-left" size={14} color={colors.text} />
-          <Text style={[styles.topActionText, { color: colors.text }]}>Competitor</Text>
+          <Text style={[styles.topActionText, { color: colors.text }]}>Danh Sách</Text>
         </TouchableOpacity>
         <TouchableOpacity style={[styles.topActionBtn, { borderColor: colors.border }]} onPress={handleBackToScan}>
           <MaterialCommunityIcons name="qrcode-scan" size={14} color={colors.text} />
-          <Text style={[styles.topActionText, { color: colors.text }]}>Scan</Text>
+          <Text style={[styles.topActionText, { color: colors.text }]}>Quét Mã</Text>
         </TouchableOpacity>
       </View>
 
       <View style={[styles.ctxCard, { backgroundColor: colors.backgroundElement, borderColor: colors.border }]}>
-        <Text style={[styles.ctxTournament, { color: colors.primary }]}>{tournament?.name || 'Tournament'}</Text>
+        <Text style={[styles.ctxTournament, { color: colors.primary }]}>{tournament?.name || 'Giải Thi Đấu'}</Text>
         <Text style={[styles.ctxLine, { color: colors.text }]}>
-          {event?.puzzleTypeName || 'Event'} | Round {laneConfig?.roundNumber || 1} | Group {laneConfig?.groupNumber || 1} | Station {laneConfig?.stationNumber || 1}
+          {event?.puzzleTypeName || 'Hạng Mục'} | Vòng {laneConfig?.roundNumber || 1} | Station {laneConfig?.stationNumber || 1}
         </Text>
         <View style={styles.ctxSep} />
         <View style={styles.ctxRow}>
           <View>
-            <Text style={styles.ctxLabel}>COMPETITOR</Text>
+            <Text style={styles.ctxLabel}>ĐẤU THỦ</Text>
             <Text style={[styles.ctxValue, { color: colors.text }]}>{selectedCompetitor.competitorName}</Text>
           </View>
           <View style={{ alignItems: 'flex-end' }}>
-            <Text style={styles.ctxLabel}>PROGRESS</Text>
-            <Text style={[styles.ctxValue, { color: colors.accent }]}>Solve {activeSolveNumber}/{totalSolveCount}</Text>
+            <Text style={styles.ctxLabel}>LƯỢT THI</Text>
+            <Text style={[styles.ctxValue, { color: colors.accent }]}>Lượt {activeSolveNumber}/{totalSolveCount}</Text>
           </View>
         </View>
       </View>
@@ -246,7 +400,7 @@ export default function JudgeScoreTab({
         <View style={[styles.card, { backgroundColor: colors.backgroundElement, borderColor: colors.border }]}>
           <View style={styles.cardHeader}>
             <MaterialCommunityIcons name="cube-outline" size={14} color={colors.accent} />
-            <Text style={[styles.cardTitle, { color: colors.text }]}>ATTEMPT SCRAMBLE</Text>
+            <Text style={[styles.cardTitle, { color: colors.text }]}>MÃ TRÁO CẦU THI ĐẤU (SCRAMBLE)</Text>
           </View>
           <View style={[styles.scrambleBox, { backgroundColor: colors.background }]}>
             <Text style={styles.scrambleText}>{currentScramble.sequence}</Text>
@@ -257,12 +411,12 @@ export default function JudgeScoreTab({
       <View style={[styles.card, { backgroundColor: colors.backgroundElement, borderColor: colors.border }]}>
         <View style={styles.cardHeader}>
           <MaterialCommunityIcons name="timer-outline" size={14} color={colors.accent} />
-          <Text style={[styles.cardTitle, { color: colors.accent }]}>SOLVE RECORDING</Text>
+          <Text style={[styles.cardTitle, { color: colors.accent }]}>NHẬP THỜI GIAN THI ĐẤU</Text>
         </View>
 
         {formatType !== 'MEDLEY' ? (
           <View>
-            <Text style={[styles.fieldLabel, { color: colors.text }]}>Stackmat Timer (seconds)</Text>
+            <Text style={[styles.fieldLabel, { color: colors.text }]}>Thời gian Stackmat (giây)</Text>
             <TextInput
               style={[styles.timeInput, { color: colors.text, borderColor: colors.border, backgroundColor: colors.background }]}
               keyboardType="numeric"
@@ -271,7 +425,7 @@ export default function JudgeScoreTab({
               value={stackmat}
               onChangeText={value => { if (!value.includes('-')) setStackmat(value); }}
             />
-            <Text style={[styles.fieldLabel, { color: colors.text, marginTop: 12 }]}>WCA Penalty Status</Text>
+            <Text style={[styles.fieldLabel, { color: colors.text, marginTop: 12 }]}>Hình phạt WCA (Penalty)</Text>
             <View style={styles.penaltyRow}>
               {(['None', '+2', 'DNF'] as PenaltyMode[]).map(mode => (
                 <TouchableOpacity
@@ -284,7 +438,7 @@ export default function JudgeScoreTab({
               ))}
             </View>
             <View style={[styles.resultCard, { backgroundColor: colors.background, borderColor: colors.border }]}>
-              <Text style={[styles.resultLabel, { color: colors.textSecondary }]}>Final Time</Text>
+              <Text style={[styles.resultLabel, { color: colors.textSecondary }]}>Thời Gian Quyết Định</Text>
               <Text style={[styles.resultValue, { color: penalty === 'DNF' ? '#ef4444' : colors.primary }]}>{finalTime}</Text>
             </View>
           </View>
@@ -296,7 +450,7 @@ export default function JudgeScoreTab({
                 <TextInput
                   style={[styles.medleyInput, { color: colors.text, borderColor: colors.border, backgroundColor: colors.background }]}
                   keyboardType="numeric"
-                  placeholder="Time"
+                  placeholder="Thời gian"
                   placeholderTextColor={colors.textSecondary}
                   value={solve.time}
                   onChangeText={value => { if (!value.includes('-')) updateMedleySolve(index, 'time', value); }}
@@ -315,25 +469,91 @@ export default function JudgeScoreTab({
               </View>
             ))}
             <View style={[styles.resultCard, { backgroundColor: colors.background, borderColor: colors.border }]}>
-              <Text style={[styles.resultLabel, { color: colors.textSecondary }]}>Combined Medley Score</Text>
+              <Text style={[styles.resultLabel, { color: colors.textSecondary }]}>Tổng Thời Gian Medley</Text>
               <Text style={[styles.resultValue, { color: medleyResult === 'DNF' ? '#ef4444' : colors.primary }]}>{medleyResult}</Text>
             </View>
           </View>
         )}
       </View>
 
+      {/* EVIDENCE PHOTOS & SCORE SHEET CARD */}
+      <View style={[styles.card, { backgroundColor: colors.backgroundElement, borderColor: colors.border }]}>
+        <View style={styles.signatureHeader}>
+          <View style={styles.cardHeader}>
+            <MaterialCommunityIcons name="camera-outline" size={14} color={colors.accent} />
+            <Text style={[styles.cardTitle, { color: colors.text }]}>ẢNH MINH CHỨNG & TỜ GHI ĐIỂM</Text>
+          </View>
+          {evidencePhotos.length > 0 && (
+            <TouchableOpacity onPress={() => setEvidencePhotos([])}>
+              <Text style={[styles.clearText, { color: '#ef4444' }]}>Xóa Tất Cả ({evidencePhotos.length})</Text>
+            </TouchableOpacity>
+          )}
+        </View>
+        <Text style={[styles.signSubtitle, { color: colors.textSecondary }]}>
+          Đính kèm ảnh minh chứng tờ ghi điểm hoặc ảnh chụp kết quả thi đấu (cho phép chọn nhiều ảnh).
+        </Text>
+
+        {/* Photo Thumbnails Preview */}
+        {evidencePhotos.length > 0 && (
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 10 }}>
+            <View style={{ flexDirection: 'row', gap: 10 }}>
+              {evidencePhotos.map((photoUri, index) => (
+                <View key={index} style={{ position: 'relative' }}>
+                  <Image
+                    source={{ uri: photoUri }}
+                    style={{ width: 70, height: 70, borderRadius: 8, borderWidth: 1, borderColor: colors.border }}
+                  />
+                  <View style={{ position: 'absolute', top: 3, left: 3, backgroundColor: 'rgba(0,0,0,0.7)', borderRadius: 4, paddingHorizontal: 4, paddingVertical: 1 }}>
+                    <Text style={{ color: '#fff', fontSize: 8, fontWeight: '800' }}>#{index + 1}</Text>
+                  </View>
+                  <TouchableOpacity
+                    onPress={() => removeEvidencePhoto(index)}
+                    style={{
+                      position: 'absolute',
+                      top: -6,
+                      right: -6,
+                      backgroundColor: '#ef4444',
+                      borderRadius: 10,
+                      width: 20,
+                      height: 20,
+                      justifyContent: 'center',
+                      alignItems: 'center',
+                      borderWidth: 1.5,
+                      borderColor: colors.backgroundElement,
+                    }}
+                  >
+                    <Text style={{ color: '#fff', fontSize: 10, fontWeight: '900' }}>✕</Text>
+                  </TouchableOpacity>
+                </View>
+              ))}
+            </View>
+          </ScrollView>
+        )}
+
+        {/* Add Photo Button */}
+        <TouchableOpacity
+          style={[styles.photoAddBtn, { borderColor: colors.primary, backgroundColor: colors.background }]}
+          onPress={handleSelectPhotoSource}
+        >
+          <MaterialCommunityIcons name="camera-plus-outline" size={16} color={colors.primary} />
+          <Text style={[styles.photoAddBtnText, { color: colors.primary }]}>
+            {evidencePhotos.length === 0 ? '📷 Chụp / Chọn Ảnh Tờ Ghi Điểm Minh Chứng' : `+ Thêm Ảnh Khác (${evidencePhotos.length} ảnh đã chọn)`}
+          </Text>
+        </TouchableOpacity>
+      </View>
+
       <View style={[styles.card, { backgroundColor: colors.backgroundElement, borderColor: colors.border }]}>
         <View style={styles.signatureHeader}>
           <View style={styles.cardHeader}>
             <MaterialCommunityIcons name="signature" size={14} color={colors.accent} />
-            <Text style={[styles.cardTitle, { color: colors.text }]}>COMPETITOR E-SIGNATURE</Text>
+            <Text style={[styles.cardTitle, { color: colors.text }]}>XÁC NHẬN CHỮ KÝ THÍ SINH</Text>
           </View>
           <TouchableOpacity onPress={clearSignature}>
-            <Text style={[styles.clearText, { color: colors.primary }]}>Clear Pad</Text>
+            <Text style={[styles.clearText, { color: colors.primary }]}>Xóa Ký Tên</Text>
           </TouchableOpacity>
         </View>
         <Text style={[styles.signSubtitle, { color: colors.textSecondary }]}>
-          Competitor must sign inside the frame to confirm result entry validation.
+          Thí sinh ký tên vào khung bên dưới để xác nhận kết quả lượt thi đấu.
         </Text>
         <View
           style={[styles.signPad, { backgroundColor: colors.background, borderColor: colors.border }]}
@@ -349,13 +569,13 @@ export default function JudgeScoreTab({
           {drawingPoints.length === 0 && (
             <View style={styles.signPlaceholder as any}>
               <MaterialCommunityIcons name="gesture-double-tap" size={14} color={colors.border} />
-              <Text style={[styles.signPlaceholderText, { color: colors.textSecondary }]}>Sign initials here</Text>
+              <Text style={[styles.signPlaceholderText, { color: colors.textSecondary }]}>Thí sinh ký tên tại đây</Text>
             </View>
           )}
         </View>
         <TextInput
           style={[styles.nameInput, { color: colors.text, borderColor: colors.border, backgroundColor: colors.background }]}
-          placeholder="Or type full competitor initials"
+          placeholder="Hoặc nhập tên viết tắt thí sinh"
           placeholderTextColor={colors.textSecondary}
           value={signName}
           onChangeText={setSignName}
@@ -372,7 +592,7 @@ export default function JudgeScoreTab({
         ) : (
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
             <MaterialCommunityIcons name="check-circle" size={16} color="#fff" />
-            <Text style={styles.submitBtnText}>Submit to Backend</Text>
+            <Text style={styles.submitBtnText}>XÁC NHẬN VÀ LƯU KẾT QUẢ</Text>
           </View>
         )}
       </TouchableOpacity>
@@ -427,6 +647,19 @@ const styles = StyleSheet.create({
   signatureHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 },
   clearText: { fontSize: 11, fontWeight: '800' },
   signSubtitle: { fontSize: 10, lineHeight: 14, marginBottom: 8 },
+  photoAddBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    height: 42,
+    borderWidth: 1.5,
+    borderStyle: 'dashed',
+    borderRadius: 8,
+    paddingHorizontal: 12,
+  },
+  photoAddBtnText: { fontSize: 11, fontWeight: '800' },
+
   signPad: { height: 90, borderWidth: 1, borderRadius: 8, position: 'relative', overflow: 'hidden', marginBottom: 8 },
   drawPoint: { position: 'absolute', width: 3, height: 3, borderRadius: 1.5 },
   signPlaceholder: { ...StyleSheet.absoluteFillObject, justifyContent: 'center', alignItems: 'center', gap: 2 },

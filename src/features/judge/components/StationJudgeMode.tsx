@@ -21,7 +21,7 @@ interface Props {
   onLogout: () => void;
 }
 
-export default function StationJudgeMode({ token, onChangeDuty }: Props) {
+export default function StationJudgeMode({ token, onChangeDuty, onLogout }: Props) {
   const colors = Colors.dark;
   const [activeTab, setActiveTab] = useState<StationTab>('station');
   const [selectedCompId, setSelectedCompId] = useState<string | null>(getSelectedCompetitorId());
@@ -51,11 +51,11 @@ export default function StationJudgeMode({ token, onChangeDuty }: Props) {
   };
 
   const tabs: { key: StationTab; label: string; icon: string }[] = [
-    { key: 'station', label: 'Station', icon: 'cog-outline' },
-    { key: 'scan', label: 'Scan', icon: 'qrcode-scan' },
-    { key: 'roster', label: 'Roster', icon: 'account-group-outline' },
-    { key: 'score', label: 'Score', icon: 'timer-check-outline' },
-    { key: 'history', label: 'History', icon: 'clipboard-text-clock-outline' },
+    { key: 'station', label: 'Cấu Hình', icon: 'cog-outline' },
+    { key: 'scan', label: 'Quét Mã', icon: 'qrcode-scan' },
+    { key: 'roster', label: 'Danh Sách', icon: 'account-group-outline' },
+    { key: 'score', label: 'Chấm Điểm', icon: 'timer-check-outline' },
+    { key: 'history', label: 'Lịch Sử', icon: 'clipboard-text-clock-outline' },
   ];
 
   return (
@@ -63,9 +63,9 @@ export default function StationJudgeMode({ token, onChangeDuty }: Props) {
       <StatusBar barStyle="light-content" />
       <SafeAreaView style={styles.safe} edges={['top']}>
         <View style={[styles.header, { borderBottomColor: colors.border }]}>
-          <TouchableOpacity onPress={onChangeDuty} style={styles.backBtn}>
-            <MaterialCommunityIcons name="chevron-left" size={22} color={colors.text} />
-            <Text style={[styles.backText, { color: colors.textSecondary }]}>Switch</Text>
+          <TouchableOpacity onPress={onLogout} style={styles.logoutHeaderBtn}>
+            <MaterialCommunityIcons name="logout" size={16} color="#ef4444" />
+            <Text style={[styles.logoutHeaderText, { color: '#ef4444' }]}>Đăng Xuất</Text>
           </TouchableOpacity>
           <View style={styles.headerCenter}>
             <Image
@@ -195,8 +195,18 @@ const styles = StyleSheet.create({
     height: 48,
     borderBottomWidth: 1,
   },
-  backBtn: { flexDirection: 'row', alignItems: 'center', gap: 2, minWidth: 60 },
-  backText: { fontSize: 10, fontWeight: '700' },
+  logoutHeaderBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: '#ef444415',
+    borderColor: '#ef444435',
+    borderWidth: 1,
+    borderRadius: 8,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+  },
+  logoutHeaderText: { fontSize: 10, fontWeight: '800' },
   headerCenter: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   miniLogo: { width: 18, height: 18, borderRadius: 4 },
   brandCube: { fontSize: 11, fontWeight: '900', letterSpacing: -0.3 },

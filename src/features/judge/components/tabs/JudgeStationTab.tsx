@@ -47,7 +47,7 @@ export default function JudgeStationTab({
     return (
       <View style={styles.loaderWrap}>
         <ActivityIndicator size="large" color={colors.primary} />
-        <Text style={[styles.loaderText, { color: colors.textSecondary }]}>Loading tournaments…</Text>
+        <Text style={[styles.loaderText, { color: colors.textSecondary }]}>Đang nạp danh sách giải đấu…</Text>
       </View>
     );
   }
@@ -61,7 +61,7 @@ export default function JudgeStationTab({
       }]}>
         <View style={[styles.dot, { backgroundColor: isHubConnected ? '#10b981' : '#ef4444' }]} />
         <Text style={[styles.connectionText, { color: isHubConnected ? '#10b981' : '#ef4444' }]}>
-          {hubStatus.toUpperCase()}
+          {isHubConnected ? 'ĐÃ KẾT NỐI TRẠM SẮN SÀNG' : 'CHƯA KẾT NỐI TRẠM'}
         </Text>
         {laneConfig && (
           <Text style={[styles.connectionDetail, { color: colors.textSecondary }]}>
@@ -71,7 +71,7 @@ export default function JudgeStationTab({
         {isHubConnected && (
           <TouchableOpacity onPress={onDisconnect} style={[styles.disconnectButton, { backgroundColor: '#ef444410', borderColor: '#ef444430' }]}>
             <MaterialCommunityIcons name="link-off" size={10} color="#ef4444" />
-            <Text style={[styles.disconnectText, { color: '#ef4444' }]}>Disconnect</Text>
+            <Text style={[styles.disconnectText, { color: '#ef4444' }]}>Ngắt Kết Nối</Text>
           </TouchableOpacity>
         )}
       </View>
@@ -79,44 +79,49 @@ export default function JudgeStationTab({
       {/* Active lane summary (when connected) */}
       {laneConfig && isHubConnected ? (
         <View style={[styles.card, { backgroundColor: colors.backgroundElement, borderColor: colors.primary + '50' }]}>
-          <Text style={[styles.cardLabel, { color: colors.primary }]}>ACTIVE LANE</Text>
+          <Text style={[styles.cardLabel, { color: colors.primary }]}>TRẠM ĐANG TRỰC CHẤM ĐIỂM</Text>
           <View style={styles.laneGrid}>
             <View style={styles.laneCell}>
-              <Text style={styles.laneCellKey}>TOURNAMENT</Text>
+              <Text style={styles.laneCellKey}>GIẢI ĐẤU</Text>
               <Text style={[styles.laneCellVal, { color: colors.text }]} numberOfLines={1}>
                 {activeTournament?.name || '—'}
               </Text>
             </View>
             <View style={styles.laneCell}>
-              <Text style={styles.laneCellKey}>EVENT</Text>
+              <Text style={styles.laneCellKey}>HẠNG MỤC</Text>
               <Text style={[styles.laneCellVal, { color: colors.text }]}>
                 {activeEvent?.puzzleTypeName || '—'}
               </Text>
             </View>
             <View style={styles.laneCell}>
-              <Text style={styles.laneCellKey}>ROUND</Text>
-              <Text style={[styles.laneCellVal, { color: colors.text }]}>Round {laneConfig.roundNumber}</Text>
+              <Text style={styles.laneCellKey}>VÒNG THI</Text>
+              <Text style={[styles.laneCellVal, { color: colors.text }]}>Vòng {laneConfig.roundNumber}</Text>
             </View>
             <View style={styles.laneCell}>
-              <Text style={styles.laneCellKey}>GROUP</Text>
-              <Text style={[styles.laneCellVal, { color: colors.text }]}>Group {laneConfig.groupNumber}</Text>
+              <Text style={styles.laneCellKey}>NHÓM THI</Text>
+              <Text style={[styles.laneCellVal, { color: colors.text }]}>
+                {laneConfig.groupNumber === 0 || !laneConfig.groupNumber ? 'Tất cả các Group' : `Group ${laneConfig.groupNumber}`}
+              </Text>
             </View>
             <View style={styles.laneCell}>
-              <Text style={styles.laneCellKey}>STATION</Text>
+              <Text style={styles.laneCellKey}>TRẠM CHẤM</Text>
               <Text style={[styles.laneCellVal, { color: colors.accent }]}>Station {laneConfig.stationNumber}</Text>
             </View>
           </View>
-          <Text style={[styles.statusMsg, { color: colors.textSecondary }]}>{statusMessage}</Text>
+          <Text style={[styles.statusMsg, { color: colors.textSecondary }]}>
+            {statusMessage === 'Configure lane and click Register Lane Connection.' ? 'Vui lòng chọn Vòng thi và kết nối trạm chấm điểm.' : statusMessage}
+          </Text>
         </View>
       ) : (
         /* Lane configuration form */
         <View style={[styles.card, { backgroundColor: colors.backgroundElement, borderColor: colors.border }]}>
           <View style={styles.cardHeaderRow}>
             <MaterialCommunityIcons name="cog-outline" size={14} color={colors.accent} />
-            <Text style={[styles.cardLabel, { color: colors.accent }]}>LANE CONFIGURATION</Text>
+            <Text style={[styles.cardLabel, { color: colors.accent }]}>CẤU HÌNH THÔNG TIN TRẠM CHẤM</Text>
           </View>
 
-          <Text style={[styles.fieldLabel, { color: colors.textSecondary }]}>Tournament</Text>
+          {/* Tournament Selection */}
+          <Text style={[styles.fieldLabel, { color: colors.textSecondary }]}>1. Giải đấu (Tournament)</Text>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipRow}>
             {tournaments.map(t => (
               <TouchableOpacity
@@ -129,7 +134,8 @@ export default function JudgeStationTab({
             ))}
           </ScrollView>
 
-          <Text style={[styles.fieldLabel, { color: colors.textSecondary, marginTop: 10 }]}>Event</Text>
+          {/* Event Selection */}
+          <Text style={[styles.fieldLabel, { color: colors.textSecondary, marginTop: 10 }]}>2. Hạng mục thi đấu (Event)</Text>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipRow}>
             {activeTournament?.events?.map((e: any) => (
               <TouchableOpacity
@@ -144,31 +150,42 @@ export default function JudgeStationTab({
             ))}
           </ScrollView>
 
-          <View style={styles.numberRow}>
-            {([
-              { label: 'Round', value: roundNumber, set: setRoundNumber },
-              { label: 'Group', value: groupNumber, set: setGroupNumber },
-              { label: 'Station', value: stationNumber, set: setStationNumber },
-            ] as const).map(({ label, value, set }) => (
-              <View key={label} style={{ flex: 1 }}>
-                <Text style={[styles.fieldLabel, { color: colors.textSecondary }]}>{label}</Text>
-                <TextInput
-                  style={[styles.numberInput, { color: colors.text, borderColor: colors.border, backgroundColor: colors.background }]}
-                  keyboardType="numeric"
-                  value={value}
-                  onChangeText={set as any}
-                />
-              </View>
+          {/* Round Selection */}
+          <Text style={[styles.fieldLabel, { color: colors.textSecondary, marginTop: 10 }]}>3. Chọn Vòng thi (Round)</Text>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipRow}>
+            {['1', '2', '3', '4'].map(r => (
+              <TouchableOpacity
+                key={r}
+                style={[styles.chip, roundNumber === r && { backgroundColor: colors.primary }]}
+                onPress={() => setRoundNumber(r)}
+              >
+                <Text style={[styles.chipText, { color: colors.text }]}>Round {r}</Text>
+              </TouchableOpacity>
             ))}
+          </ScrollView>
+
+          {/* Pre-assigned Station & Group Auto Banner */}
+          <View style={{ backgroundColor: colors.primary + '15', borderColor: colors.primary + '35', borderWidth: 1, borderRadius: 10, padding: 12, marginTop: 14, flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+            <MaterialCommunityIcons name="shield-check" size={22} color={colors.primary} />
+            <View style={{ flex: 1 }}>
+              <Text style={{ color: colors.text, fontSize: 13, fontWeight: '800' }}>
+                Trạm thi đấu: <Text style={{ color: colors.accent, fontWeight: '900' }}>Station {stationNumber || '1'}</Text>
+              </Text>
+              <Text style={{ color: colors.textSecondary, fontSize: 10, marginTop: 2, lineHeight: 14 }}>
+                Trạm thi đấu chính thức được Ban Tổ Chức phân công. Tự động nạp danh sách đấu thủ trong Vòng thi.
+              </Text>
+            </View>
           </View>
 
           <TouchableOpacity
-            style={[styles.registerBtn, { backgroundColor: isConfigComplete ? colors.primary : colors.border, opacity: isConfigComplete ? 1 : 0.5 }]}
+            style={[styles.registerBtn, { backgroundColor: isConfigComplete ? '#10b981' : colors.border, opacity: isConfigComplete ? 1 : 0.5 }]}
             onPress={onRegister}
             disabled={!isConfigComplete}
           >
-            <MaterialCommunityIcons name="connection" size={14} color="#fff" />
-            <Text style={styles.registerBtnText}>Register Lane Connection</Text>
+            <MaterialCommunityIcons name="connection" size={16} color="#fff" />
+            <Text style={styles.registerBtnText}>
+              Kết Nối Vòng {roundNumber || '1'}
+            </Text>
           </TouchableOpacity>
 
           {statusMessage ? (

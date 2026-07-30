@@ -181,9 +181,9 @@ export default function CheckInScanTab({ isScanning, lastResult, onScan, onClear
       <View style={[styles.instructionBanner, { backgroundColor: '#10b98112', borderColor: '#10b98130' }]}>
         <MaterialCommunityIcons name="account-check-outline" size={20} color="#10b981" />
         <View style={styles.instructionText}>
-          <Text style={styles.instructionTitle}>Reception Check-in</Text>
+          <Text style={styles.instructionTitle}>Điểm Danh Thí Sinh Tại Quầy</Text>
           <Text style={[styles.instructionSub, { color: colors.textSecondary }]}>
-            Scan the competitor's QR ticket to mark them as checked in.
+            Quét mã QR trên vé thi đấu của thí sinh để hoàn tất thủ tục điểm danh.
           </Text>
         </View>
       </View>
@@ -200,7 +200,7 @@ export default function CheckInScanTab({ isScanning, lastResult, onScan, onClear
         ) : (
           <View style={styles.cameraPlaceholder}>
             <MaterialCommunityIcons name="camera-outline" size={36} color="rgba(255,255,255,0.15)" />
-            <Text style={styles.cameraPlaceholderText}>CAMERA STANDBY</Text>
+            <Text style={styles.cameraPlaceholderText}>SẴN SÀNG MỞ CAMERA</Text>
           </View>
         )}
         {showCamera && (
@@ -228,13 +228,13 @@ export default function CheckInScanTab({ isScanning, lastResult, onScan, onClear
         {isScanning ? (
           <>
             <ActivityIndicator size="small" color="#fff" />
-            <Text style={styles.cameraBtnText}>Processing check-in…</Text>
+            <Text style={styles.cameraBtnText}>Đang xử lý điểm danh…</Text>
           </>
         ) : (
           <>
             <MaterialCommunityIcons name={showCamera ? 'camera-off' : 'camera'} size={16} color="#fff" />
             <Text style={styles.cameraBtnText}>
-              {showCamera ? 'Cancel Scan' : 'Open Scanner'}
+              {showCamera ? 'Tắt Camera' : 'Mở Quét Mã QR'}
             </Text>
           </>
         )}
@@ -257,7 +257,7 @@ export default function CheckInScanTab({ isScanning, lastResult, onScan, onClear
             />
             <View style={{ flex: 1 }}>
               <Text style={[styles.resultTitle, { color: lastResult.success ? '#10b981' : '#ef4444' }]}>
-                {lastResult.success ? 'Check-in Successful' : 'Check-in Failed'}
+                {lastResult.success ? 'Điểm Danh Thành Công' : 'Điểm Danh Thất Bại'}
               </Text>
               <Text style={[styles.resultMessage, { color: colors.textSecondary }]}>
                 {lastResult.message}
@@ -284,7 +284,7 @@ export default function CheckInScanTab({ isScanning, lastResult, onScan, onClear
       <View style={[styles.hintBox, { backgroundColor: colors.backgroundElement, borderColor: colors.border }]}>
         <MaterialCommunityIcons name="information-outline" size={11} color={colors.textSecondary} />
         <Text style={[styles.hintText, { color: colors.textSecondary }]}>
-          Only CubeNexus QR tickets are accepted. Each competitor has one QR ticket per tournament.
+          Chỉ chấp nhận mã QR vé thi đấu CubeNexus chính thức của giải. Mỗi thí sinh có một mã QR điểm danh duy nhất.
         </Text>
       </View>
     </ScrollView>
