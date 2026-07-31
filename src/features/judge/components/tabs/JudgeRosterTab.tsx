@@ -11,6 +11,9 @@ interface Props {
 }
 
 function getDisplayState(competitor: JudgeStationCompetitor): { label: string; color: string; background: string } {
+  if (competitor.isCutoffReached) {
+    return { label: 'TRƯỢT CUTOFF', color: '#f97316', background: '#f9731612' };
+  }
   if (competitor.sessionState === 'ISSUE') {
     return { label: 'CÓ LỖI', color: '#ef4444', background: '#ef444412' };
   }

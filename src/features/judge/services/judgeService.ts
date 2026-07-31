@@ -75,12 +75,18 @@ function parseJwtClaims(token: string): Record<string, any> | null {
   }
 }
 
-function deriveBackendStatus(submittedCount: number, solveCount: number, explicitStatus?: string | null): JudgeRosterBackendStatus {
+function deriveBackendStatus(
+  submittedCount: number,
+  solveCount: number,
+  explicitStatus?: string | null,
+  canSubmit: boolean = true,
+  isCutoffReached: boolean = false
+): JudgeRosterBackendStatus {
   const normalized = explicitStatus?.toUpperCase();
   if (normalized === 'ABSENT' || normalized === 'DNS') {
     return normalized;
   }
-  if (submittedCount >= solveCount && solveCount > 0) {
+  if ((submittedCount >= solveCount && solveCount > 0) || isCutoffReached || (!canSubmit && submittedCount > 0)) {
     return 'DONE';
   }
   if (submittedCount > 0) {
@@ -89,9 +95,17 @@ function deriveBackendStatus(submittedCount: number, solveCount: number, explici
   return 'WAITING';
 }
 
-function buildSolveProgress(nextSolveNumber: number | null, solveCount: number, submittedCount: number): string {
+function buildSolveProgress(
+  nextSolveNumber: number | null,
+  solveCount: number,
+  submittedCount: number,
+  isCutoffReached: boolean = false
+): string {
   if (solveCount <= 0) {
     return 'Solve 0/0';
+  }
+  if (isCutoffReached || (nextSolveNumber === null && submittedCount < solveCount)) {
+    return `Solve ${submittedCount}/${solveCount} (CUTOFF)`;
   }
   if (nextSolveNumber === null || submittedCount >= solveCount) {
     return `Solve ${solveCount}/${solveCount}`;
@@ -112,9 +126,11 @@ function mapRosterItem(dto: {
   submittedCount: number;
   nextSolveNumber?: number | null;
   canSubmit: boolean;
+  isCutoffReached?: boolean;
   status?: string | null;
 }): JudgeStationCompetitor {
-  const backendStatus = deriveBackendStatus(dto.submittedCount, dto.solveCount, dto.status);
+  const isCutoff = Boolean(dto.isCutoffReached || (!dto.canSubmit && dto.submittedCount > 0 && dto.submittedCount < dto.solveCount));
+  const backendStatus = deriveBackendStatus(dto.submittedCount, dto.solveCount, dto.status, dto.canSubmit, isCutoff);
   return {
     groupCompetitorId: dto.groupCompetitorId,
     groupId: dto.groupId,
@@ -128,9 +144,10 @@ function mapRosterItem(dto: {
     submittedSolveCount: dto.submittedCount,
     nextSolveNumber: dto.nextSolveNumber ?? null,
     canSubmit: dto.canSubmit,
+    isCutoffReached: isCutoff,
     backendStatus,
     currentSolveNumber: dto.nextSolveNumber ?? dto.solveCount,
-    solveProgress: buildSolveProgress(dto.nextSolveNumber ?? null, dto.solveCount, dto.submittedCount),
+    solveProgress: buildSolveProgress(dto.nextSolveNumber ?? null, dto.solveCount, dto.submittedCount, isCutoff),
     lastScannedAt: null,
     sessionState: 'IDLE',
   };
@@ -143,19 +160,22 @@ function applyProgressToCompetitor(
     submittedCount: number;
     nextSolveNumber?: number | null;
     canSubmit: boolean;
+    isCutoffReached?: boolean;
   },
   sessionState?: JudgeCompetitorSessionState
 ): JudgeStationCompetitor {
-  const backendStatus = deriveBackendStatus(progress.submittedCount, progress.solveCount);
+  const isCutoff = Boolean(progress.isCutoffReached || (!progress.canSubmit && progress.submittedCount > 0 && progress.submittedCount < progress.solveCount));
+  const backendStatus = deriveBackendStatus(progress.submittedCount, progress.solveCount, null, progress.canSubmit, isCutoff);
   return {
     ...competitor,
     totalSolveCount: progress.solveCount,
     submittedSolveCount: progress.submittedCount,
     nextSolveNumber: progress.nextSolveNumber ?? null,
     canSubmit: progress.canSubmit,
+    isCutoffReached: isCutoff,
     backendStatus,
     currentSolveNumber: progress.nextSolveNumber ?? progress.solveCount,
-    solveProgress: buildSolveProgress(progress.nextSolveNumber ?? null, progress.solveCount, progress.submittedCount),
+    solveProgress: buildSolveProgress(progress.nextSolveNumber ?? null, progress.solveCount, progress.submittedCount, isCutoff),
     sessionState: sessionState ?? competitor.sessionState,
   };
 }
