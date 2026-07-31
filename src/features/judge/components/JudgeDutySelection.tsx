@@ -3,7 +3,7 @@ import { View, Text, TouchableOpacity, StyleSheet, Image } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Colors } from '@/constants/theme';
-import { useTheme } from '@/hooks/use-theme';
+import { useAuth } from '@/contexts/AuthContext';
 import { JudgeDutyMode } from '../types';
 
 interface Props {
@@ -12,7 +12,11 @@ interface Props {
 }
 
 export default function JudgeDutySelection({ onSelectDuty, onLogout }: Props) {
-  const colors = useTheme();
+  const colors = Colors.dark;
+  const { user } = useAuth();
+  const roleUpper = (user?.role || '').toUpperCase();
+  const isCheckInRole = roleUpper.includes('CHECK_IN') || roleUpper.includes('CHECKIN') || roleUpper.includes('RECEPTION');
+  const isJudgeRole = roleUpper.includes('JUDGE') || roleUpper.includes('STATION') || roleUpper.includes('ADMIN') || roleUpper.includes('MANAGER');
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
@@ -27,7 +31,7 @@ export default function JudgeDutySelection({ onSelectDuty, onLogout }: Props) {
             />
             <Text style={[styles.brandCube, { color: colors.text }]}>CUBE</Text>
             <Text style={[styles.brandNexus, { color: colors.accent }]}>NEXUS</Text>
-            <Text style={[styles.brandRole, { color: colors.textSecondary }]}>  ·  JUDGE</Text>
+            <Text style={[styles.brandRole, { color: colors.textSecondary }]}>  ·  {user?.displayName || user?.role || 'JUDGE'}</Text>
           </View>
           <TouchableOpacity onPress={onLogout} style={styles.logoutBtn}>
             <MaterialCommunityIcons name="logout" size={18} color={colors.textSecondary} />
@@ -36,9 +40,9 @@ export default function JudgeDutySelection({ onSelectDuty, onLogout }: Props) {
 
         {/* Content */}
         <View style={styles.content}>
-          <Text style={[styles.title, { color: colors.text }]}>Select Your Duty</Text>
+          <Text style={[styles.title, { color: colors.text }]}>Chọn Nhiệm Vụ Trọng Tài</Text>
           <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
-            Choose your role for this session. You can switch at any time.
+            Xin chào {user?.displayName || 'Trọng tài'}! Nhiệm vụ chính: <Text style={{ color: colors.primary, fontWeight: '800' }}>{user?.judgeRoleCode === 'CHECKIN_JUDGE' ? 'Trọng tài Check-in' : user?.judgeRoleCode === 'STATION_JUDGE' ? 'Trọng tài Bàn thi' : (user?.role || 'JUDGE')}</Text>.
           </Text>
 
           {/* Check-in Desk Card */}
@@ -51,10 +55,10 @@ export default function JudgeDutySelection({ onSelectDuty, onLogout }: Props) {
               <MaterialCommunityIcons name="account-check-outline" size={32} color="#10b981" />
             </View>
             <View style={styles.dutyText}>
-              <Text style={[styles.dutyTitle, { color: colors.text }]}>Check-in Desk</Text>
+              <Text style={[styles.dutyTitle, { color: colors.text }]}>Quầy Điểm Danh & Đón Tiếp</Text>
               <Text style={[styles.dutyDesc, { color: colors.textSecondary }]}>
-                Scan competitor QR tickets at reception.{'\n'}
-                Mark competitors as checked in for the tournament.
+                Quét mã QR vé thi đấu của thí sinh tại quầy đón tiếp.{'\n'}
+                Đánh dấu thí sinh đã có mặt điểm danh tham gia giải.
               </Text>
             </View>
             <MaterialCommunityIcons name="chevron-right" size={22} color={colors.border} />
@@ -70,10 +74,10 @@ export default function JudgeDutySelection({ onSelectDuty, onLogout }: Props) {
               <MaterialCommunityIcons name="timer-check-outline" size={32} color={colors.primary} />
             </View>
             <View style={styles.dutyText}>
-              <Text style={[styles.dutyTitle, { color: colors.text }]}>Station Judge</Text>
+              <Text style={[styles.dutyTitle, { color: colors.text }]}>Trọng Tài Bàn Thi Đấu</Text>
               <Text style={[styles.dutyDesc, { color: colors.textSecondary }]}>
-                Verify competitors at your station, manage{'\n'}
-                the roster, and record official solve results.
+                Xác nhận thí sinh tại bàn thi, xem danh sách lượt thi,{'\n'}
+                chụp ảnh tờ ghi điểm và ghi nhận kết quả lượt thi.
               </Text>
             </View>
             <MaterialCommunityIcons name="chevron-right" size={22} color={colors.primary} />
@@ -84,7 +88,7 @@ export default function JudgeDutySelection({ onSelectDuty, onLogout }: Props) {
         <View style={styles.footer}>
           <MaterialCommunityIcons name="information-outline" size={12} color={colors.textSecondary} />
           <Text style={[styles.footerText, { color: colors.textSecondary }]}>
-            Duty mode is local only — not sent to the server.
+            Bạn có thể đổi nhiệm vụ bất cứ lúc nào trong cài đặt ứng dụng.
           </Text>
         </View>
       </SafeAreaView>

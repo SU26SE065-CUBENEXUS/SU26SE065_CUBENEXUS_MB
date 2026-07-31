@@ -23,7 +23,7 @@ export interface RegisteredEventDetailDto {
   seedTimeMs?: number | null;
   seedSourceCode?: string | null;
   seedGeneratedAt?: string | null;
-  assignment?: CompetitorAssignmentDto | null;
+  assignments?: CompetitorAssignmentDto[] | null;
 }
 
 export interface RegistrationDto {
@@ -45,6 +45,9 @@ export interface TournamentDetailDto {
   name: string;
   description?: string | null;
   location?: string | null;
+  maxParticipants?: number | null;
+  currentParticipants?: number | null;
+  bannerUrl?: string | null;
   startDate: string;
   endDate: string;
   registrationOpenAt: string;

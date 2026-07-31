@@ -44,6 +44,7 @@ export interface JudgeStationCompetitor {
   submittedSolveCount: number;
   nextSolveNumber: number | null;
   canSubmit: boolean;
+  isCutoffReached?: boolean;
   backendStatus: JudgeRosterBackendStatus;
   currentSolveNumber: number;
   solveProgress: string;
@@ -64,6 +65,7 @@ export interface CompetitorSolveProgress {
   submittedCount: number;
   nextSolveNumber?: number | null;
   canSubmit: boolean;
+  isCutoffReached?: boolean;
   reason?: string | null;
   currentScramble?: {
     scrambleId: string;
@@ -79,7 +81,7 @@ export interface JudgeScoringSession {
 
 export interface PenaltyType {
   id: string;
-  code: 'OK' | 'PLUS_2' | 'DNF';
+  code: 'OK' | '+2' | 'DNF';
   label: string;
   timeAdditionMs: number;
 }
@@ -107,6 +109,7 @@ export interface VerifiedCompetitor {
   nextSolveNumber: number;
   solveCount: number;
   canSubmit: boolean;
+  isCutoffReached?: boolean;
   currentScramble?: {
     scrambleId: string;
     solveNumber: number;
@@ -133,4 +136,5 @@ export interface JudgeHistoryRecord {
   finalTimeMs: number | null;
   isDnf: boolean;
   submittedAt: string;
+  evidencePhotoUrl?: string | null;
 }

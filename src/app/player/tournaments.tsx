@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
 import {
   StyleSheet,
   Text,
@@ -11,8 +11,10 @@ import {
   Modal,
   Image,
   Alert,
+  Animated,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Colors } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -21,12 +23,41 @@ import { useLocalSearchParams } from 'expo-router';
 import {
   fetchCompetitorRegistrations,
   fetchPublicTournaments,
-  fetchTournamentById,
   registerForTournament,
 } from '@/services/competitorService';
 import { RegistrationDto, TournamentDetailDto, EventDetailDto } from '@/types/competitor';
 
 type TabSegment = 'MY_REGS' | 'OPEN_TOURS' | 'PAST_TOURS';
+
+// ─── Skeleton shimmer card shown while data loads ───────────────────────────
+function SkeletonCard({ colors }: { colors: any }) {
+  const shimmer = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(shimmer, { toValue: 1, duration: 900, useNativeDriver: true }),
+        Animated.timing(shimmer, { toValue: 0, duration: 900, useNativeDriver: true }),
+      ])
+    ).start();
+  }, [shimmer]);
+
+  const opacity = shimmer.interpolate({ inputRange: [0, 1], outputRange: [0.3, 0.7] });
+
+  return (
+    <View style={[styles.card, { backgroundColor: colors.backgroundElement, borderColor: colors.border }]}>
+      {/* Banner placeholder */}
+      <Animated.View style={{ height: 100, backgroundColor: colors.border, opacity }} />
+      <View style={{ padding: 14, gap: 8 }}>
+        <Animated.View style={{ height: 10, width: '45%', borderRadius: 5, backgroundColor: colors.border, opacity }} />
+        <Animated.View style={{ height: 14, width: '80%', borderRadius: 5, backgroundColor: colors.border, opacity }} />
+        <Animated.View style={{ height: 10, width: '60%', borderRadius: 5, backgroundColor: colors.border, opacity }} />
+        <Animated.View style={{ height: 5, borderRadius: 3, backgroundColor: colors.border, opacity, marginTop: 4 }} />
+      </View>
+      <View style={{ height: 48, borderTopWidth: 1, borderColor: colors.border, margin: 0, backgroundColor: colors.backgroundElement }} />
+    </View>
+  );
+}
 
 export default function TournamentsScreen() {
   const colors = useTheme();
@@ -58,14 +89,32 @@ export default function TournamentsScreen() {
   // Selected events for registration form
   const [selectedEventIds, setSelectedEventIds] = useState<Record<string, boolean>>({});
 
+  const CACHE_KEY = '@tournaments_public_cache';
+
   const loadData = useCallback(async (showIndicator = true) => {
-    if (showIndicator) setIsLoading(true);
+    // Stale-while-revalidate: try to load from AsyncStorage cache first for instant display
     try {
-      // 1. Fetch public tournaments
+      const cached = await AsyncStorage.getItem(CACHE_KEY);
+      if (cached) {
+        const parsed = JSON.parse(cached) as TournamentDetailDto[];
+        const filtered = parsed.filter(t => t.statusCode !== 'DRAFT');
+        setPublicTournaments(filtered);
+        // Don't show spinner if we have cached data
+        if (showIndicator) setIsLoading(false);
+      } else if (showIndicator) {
+        setIsLoading(true);
+      }
+    } catch {
+      if (showIndicator) setIsLoading(true);
+    }
+
+    try {
+      // 1. Fetch fresh public tournaments in background
       const tours = await fetchPublicTournaments();
-      // Hide DRAFT tournaments
       const filteredTours = tours.filter(t => t.statusCode !== 'DRAFT');
       setPublicTournaments(filteredTours);
+      // Cache fresh data for next launch
+      try { await AsyncStorage.setItem(CACHE_KEY, JSON.stringify(tours)); } catch { /* ignore */ }
 
       // 2. Fetch registrations if authenticated
       if (accessToken) {
@@ -107,22 +156,15 @@ export default function TournamentsScreen() {
     setShowScheduleModal(true);
   };
 
-  const handleOpenDetail = async (tournamentId: string) => {
-    setIsLoading(true);
-    try {
-      const detail = await fetchTournamentById(tournamentId);
-      if (detail) {
-        setSelectedTour(detail);
-        // Clear checkboxes
-        setSelectedEventIds({});
-        setShowDetailModal(true);
-      } else {
-        Alert.alert('Error', 'Failed to retrieve tournament details.');
-      }
-    } catch {
-      Alert.alert('Error', 'Could not query tournament information.');
-    } finally {
-      setIsLoading(false);
+  const handleOpenDetail = (tournamentId: string) => {
+    // Data is already in publicTournaments — no need for an extra API call
+    const detail = publicTournaments.find(t => t.id === tournamentId) ?? null;
+    if (detail) {
+      setSelectedTour(detail);
+      setSelectedEventIds({});
+      setShowDetailModal(true);
+    } else {
+      Alert.alert('Lỗi', 'Không tìm thấy thông tin giải đấu.');
     }
   };
 
@@ -275,11 +317,11 @@ export default function TournamentsScreen() {
           }
         >
           {isLoading ? (
-            <View style={styles.loadingContainer}>
-              <ActivityIndicator size="large" color={colors.primary} />
-              <Text style={[styles.loadingText, { color: colors.textSecondary }]}>
-                Loading tournament lists...
-              </Text>
+            // Skeleton shimmer loading cards
+            <View style={styles.listContainer}>
+              {[1, 2, 3].map((i) => (
+                <SkeletonCard key={i} colors={colors} />
+              ))}
             </View>
           ) : (
             <View style={styles.listContainer}>
@@ -362,55 +404,92 @@ export default function TournamentsScreen() {
                   {openTournamentsFiltered.length === 0 ? (
                     <View style={styles.emptyContainer}>
                       <MaterialCommunityIcons name="calendar-remove-outline" size={60} color={colors.border} />
-                      <Text style={[styles.emptyText, { color: colors.text }]}>No open tournaments</Text>
+                      <Text style={[styles.emptyText, { color: colors.text }]}>Không có giải đấu đang mở</Text>
                       <Text style={[styles.emptySubText, { color: colors.textSecondary }]}>
-                        Check back later. There are no tournaments currently accepting registrations.
+                        Hiện tại chưa có giải đấu nào đang nhận đăng ký. Vui lòng quay lại sau!
                       </Text>
                     </View>
                   ) : (
-                    openTournamentsFiltered.map((tour) => (
-                      <View
-                        key={tour.id}
-                        style={[styles.card, { backgroundColor: colors.backgroundElement, borderColor: colors.border }]}
-                      >
-                        <View style={styles.cardHeader}>
-                          <View style={{ flex: 1 }}>
-                            <Text style={[styles.cardDate, { color: colors.primary }]}>
-                              {formatDates(tour.startDate, tour.endDate)}
-                            </Text>
-                            <Text style={[styles.cardTitle, { color: colors.text }]} numberOfLines={2}>
-                              {tour.name}
-                            </Text>
-                          </View>
-                          <View style={[styles.statusBadge, { borderColor: colors.success + '30', backgroundColor: colors.success + '12' }]}>
-                            <Text style={[styles.statusBadgeText, { color: colors.success }]}>
-                              {tour.statusCode}
-                            </Text>
-                          </View>
-                        </View>
+                    openTournamentsFiltered.map((tour) => {
+                      const maxCap = tour.maxParticipants || 40;
+                      const regCount = tour.currentParticipants ?? 0;
+                      const fillPct = maxCap > 0 ? Math.min(100, Math.round((regCount / maxCap) * 100)) : 0;
 
-                        <View style={styles.detailsRow}>
-                          <View style={styles.detailItem}>
-                            <MaterialCommunityIcons name="map-marker-outline" size={14} color={colors.textSecondary} />
-                            <Text style={[styles.detailText, { color: colors.textSecondary }]} numberOfLines={1}>
-                              {tour.location || 'Online / TBD'}
-                            </Text>
+                      return (
+                        <View
+                          key={tour.id}
+                          style={[styles.card, { backgroundColor: colors.backgroundElement, borderColor: colors.border }]}
+                        >
+                          {/* Top Banner Image if available */}
+                          {tour.bannerUrl ? (
+                            <View style={styles.cardBannerContainer}>
+                              <Image source={{ uri: tour.bannerUrl }} style={styles.cardBannerImage} resizeMode="cover" />
+                              <View style={styles.cardBannerOverlay} />
+                              <View style={styles.cardCapacityBadge}>
+                                <Text style={styles.cardCapacityBadgeText}>
+                                  👥 {regCount} / {maxCap} thí sinh
+                                </Text>
+                              </View>
+                            </View>
+                          ) : null}
+
+                          <View style={styles.cardHeader}>
+                            <View style={{ flex: 1 }}>
+                              <Text style={[styles.cardDate, { color: colors.primary }]}>
+                                {formatDates(tour.startDate, tour.endDate)}
+                              </Text>
+                              <Text style={[styles.cardTitle, { color: colors.text }]} numberOfLines={2}>
+                                {tour.name}
+                              </Text>
+                            </View>
+                            <View style={[styles.statusBadge, { borderColor: colors.success + '30', backgroundColor: colors.success + '12' }]}>
+                              <Text style={[styles.statusBadgeText, { color: colors.success }]}>
+                                {tour.statusCode}
+                              </Text>
+                            </View>
+                          </View>
+
+                          <View style={styles.detailsRow}>
+                            <View style={styles.detailItem}>
+                              <MaterialCommunityIcons name="map-marker-outline" size={14} color={colors.textSecondary} />
+                              <Text style={[styles.detailText, { color: colors.textSecondary }]} numberOfLines={1}>
+                                {tour.location || 'TP. Hồ Chí Minh, Việt Nam'}
+                              </Text>
+                            </View>
+                            <View style={[styles.detailItem, { width: '100%', marginTop: 2 }]}>
+                              <MaterialCommunityIcons name="account-group-outline" size={14} color={colors.accent} />
+                              <Text style={[styles.detailText, { color: colors.accent, fontWeight: '700' }]}>
+                                Đã đăng ký: {regCount} / {maxCap} thí sinh ({fillPct}%)
+                              </Text>
+                            </View>
+                            {/* Capacity Bar */}
+                            <View style={styles.capacityBarBg}>
+                              <View
+                                style={[
+                                  styles.capacityBarFill,
+                                  {
+                                    width: `${fillPct}%`,
+                                    backgroundColor: fillPct > 90 ? '#ef4444' : colors.accent,
+                                  },
+                                ]}
+                              />
+                            </View>
+                          </View>
+
+                          <View style={[styles.actionsRow, { borderTopColor: colors.border }]}>
+                            <TouchableOpacity
+                              style={[styles.actionBtn, styles.solidBtn, { backgroundColor: colors.primary, flex: 1 }]}
+                              onPress={() => handleOpenDetail(tour.id)}
+                            >
+                              <MaterialCommunityIcons name="clipboard-text-play-outline" size={16} color="#fff" />
+                              <Text style={[styles.actionBtnText, { color: '#fff' }]}>
+                                Xem Chi Tiết & Đăng Ký
+                              </Text>
+                            </TouchableOpacity>
                           </View>
                         </View>
-
-                        <View style={[styles.actionsRow, { borderTopColor: colors.border }]}>
-                          <TouchableOpacity
-                            style={[styles.actionBtn, styles.solidBtn, { backgroundColor: colors.primary, flex: 1 }]}
-                            onPress={() => handleOpenDetail(tour.id)}
-                          >
-                            <MaterialCommunityIcons name="clipboard-text-play-outline" size={16} color="#fff" />
-                            <Text style={[styles.actionBtnText, { color: '#fff' }]}>
-                              View Details & Register
-                            </Text>
-                          </TouchableOpacity>
-                        </View>
-                      </View>
-                    ))
+                      );
+                    })
                   )}
                 </View>
               )}
@@ -595,71 +674,116 @@ export default function TournamentsScreen() {
                           </View>
                         </View>
 
-                        {/* Real Backend Assignment Checks */}
+                        {/* Smart Multi-Round Timeline */}
                         {(() => {
-                          const a = evt.assignment;
-                          // Group DB statuses: Group.StatusCode = PENDING|ONGOING|LOCKED|COMPLETED
-                          // isPublished = group.StatusCode != "PENDING" (set by backend)
-                          if (a && a.isPublished) {
-                            // Group is ONGOING/LOCKED/COMPLETED → show full assignment
-                            return (
-                              <View style={styles.assignmentDetailsContainer}>
-                                <View style={[styles.assignmentGroupBadge, { backgroundColor: colors.success + '15', borderColor: colors.success + '30' }]}>
-                                  <MaterialCommunityIcons name="account-group" size={13} color={colors.success} />
-                                  <Text style={[styles.assignmentGroupBadgeText, { color: colors.success }]}>
-                                    {a.groupStatusCode}
-                                  </Text>
-                                </View>
-                                <View style={styles.assignmentDetailsRow}>
-                                  <MaterialCommunityIcons name="layers-outline" size={14} color={colors.primary} />
-                                  <Text style={[styles.assignmentDetailsText, { color: colors.text }]}>
-                                    Round {a.roundNumber} • {a.groupName}
-                                  </Text>
-                                </View>
-                                <View style={styles.assignmentDetailsRow}>
-                                  <MaterialCommunityIcons name="seat" size={14} color={colors.primary} />
-                                  <Text style={[styles.assignmentDetailsText, { color: colors.text }]}>
-                                    Station: {a.stationNumber ?? 'TBD'}
-                                  </Text>
-                                </View>
-                              </View>
-                            );
-                          } else if (a && !a.isPublished) {
-                            // Group record EXISTS in DB but Group.StatusCode = PENDING
-                            // Manager has generated groups but not started/published yet
-                            return (
-                              <View style={styles.assignmentDetailsContainer}>
-                                <View style={[styles.assignmentGroupBadge, { backgroundColor: colors.accent + '15', borderColor: colors.accent + '30' }]}>
-                                  <MaterialCommunityIcons name="clock-outline" size={13} color={colors.accent} />
-                                  <Text style={[styles.assignmentGroupBadgeText, { color: colors.accent }]}>
-                                    PREPARING
-                                  </Text>
-                                </View>
-                                <View style={styles.assignmentDetailsRow}>
-                                  <MaterialCommunityIcons name="layers-outline" size={14} color={colors.textSecondary} />
-                                  <Text style={[styles.assignmentDetailsText, { color: colors.text }]}>
-                                    Round {a.roundNumber} • {a.groupName}
-                                  </Text>
-                                </View>
-                                <View style={styles.assignmentDetailsRow}>
-                                  <MaterialCommunityIcons name="seat" size={14} color={colors.textSecondary} />
-                                  <Text style={[styles.assignmentDetailsText, { color: colors.textSecondary }]}>
-                                    Station: {a.stationNumber ?? 'TBD'} · Waiting for manager to start
-                                  </Text>
-                                </View>
-                              </View>
-                            );
-                          } else {
-                            // assignment = null → No GroupCompetitor record yet
+                          const assignments = evt.assignments;
+                          if (!assignments || assignments.length === 0) {
                             return (
                               <View style={styles.assignmentPendingContainer}>
                                 <MaterialCommunityIcons name="help-circle-outline" size={14} color={colors.textSecondary} />
                                 <Text style={[styles.assignmentPendingText, { color: colors.textSecondary }]}>
-                                  Groups have not been assigned yet
+                                  Ban Tổ Chức chưa phân nhóm thi đấu
                                 </Text>
                               </View>
                             );
                           }
+
+
+                          return (
+                            <View style={{ gap: 6, marginTop: 8 }}>
+                              {assignments.map((a, idx) => {
+                                const isLast = idx === assignments.length - 1;
+                                const isCompleted = a.groupStatusCode === 'COMPLETED';
+                                const isOngoing = a.groupStatusCode === 'ONGOING';
+                                const isPending = a.groupStatusCode === 'PENDING';
+                                const isCurrentActive = isLast && (isOngoing || isPending);
+
+                                const dotColor = isCompleted
+                                  ? '#6b7280'
+                                  : isOngoing
+                                  ? colors.success
+                                  : colors.accent;
+
+                                const bgColor = isCurrentActive
+                                  ? (isOngoing ? colors.success + '15' : colors.accent + '12')
+                                  : 'transparent';
+
+                                const borderColor = isCurrentActive
+                                  ? (isOngoing ? colors.success + '30' : colors.accent + '25')
+                                  : colors.border;
+
+                                return (
+                                  <View key={a.groupId} style={{ flexDirection: 'row', gap: 10 }}>
+                                    {/* Timeline dot + line */}
+                                    <View style={{ alignItems: 'center', width: 18 }}>
+                                      <View style={{
+                                        width: 10, height: 10, borderRadius: 5,
+                                        backgroundColor: dotColor,
+                                        marginTop: 10,
+                                      }} />
+                                      {!isLast && (
+                                        <View style={{ width: 2, flex: 1, backgroundColor: colors.border, marginTop: 2 }} />
+                                      )}
+                                    </View>
+
+                                    {/* Round card */}
+                                    <View style={[{
+                                      flex: 1, borderRadius: 10, borderWidth: 1,
+                                      padding: 10, marginBottom: 2,
+                                      backgroundColor: bgColor, borderColor,
+                                    }]}>
+                                      {/* Round header */}
+                                      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+                                        <Text style={{ fontSize: 12, fontWeight: '800', color: isCompleted ? colors.textSecondary : colors.text }}>
+                                          Vòng {a.roundNumber}
+                                          {isCurrentActive && isOngoing ? ' 🔴 ĐANG THI' : ''}
+                                          {isCurrentActive && isPending ? ' ⏳ SẮP BẮT ĐẦU' : ''}
+                                        </Text>
+                                        <View style={{
+                                          paddingHorizontal: 7, paddingVertical: 2, borderRadius: 5,
+                                          backgroundColor: isCompleted
+                                            ? '#37415133'
+                                            : isOngoing
+                                            ? colors.success + '25'
+                                            : colors.accent + '20',
+                                        }}>
+                                          <Text style={{
+                                            fontSize: 9, fontWeight: '800',
+                                            color: isCompleted ? colors.textSecondary : isOngoing ? colors.success : colors.accent,
+                                          }}>
+                                            {isCompleted ? 'HOÀN THÀNH' : isOngoing ? 'ĐANG THI' : 'CHUẨN BỊ'}
+                                          </Text>
+                                        </View>
+                                      </View>
+
+                                      {/* Group + Station */}
+                                      <View style={{ flexDirection: 'row', gap: 12, flexWrap: 'wrap' }}>
+                                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                                          <MaterialCommunityIcons name="account-group-outline" size={13} color={isCompleted ? colors.textSecondary : colors.primary} />
+                                          <Text style={{ fontSize: 11, color: isCompleted ? colors.textSecondary : colors.text, fontWeight: '600' }}>
+                                            {a.groupName}
+                                          </Text>
+                                        </View>
+                                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                                          <MaterialCommunityIcons name="seat" size={13} color={isCompleted ? colors.textSecondary : colors.primary} />
+                                          <Text style={{ fontSize: 11, color: isCompleted ? colors.textSecondary : colors.text, fontWeight: '600' }}>
+                                            Bàn thi: {a.stationNumber ?? 'TBD'}
+                                          </Text>
+                                        </View>
+                                      </View>
+
+                                      {/* Eliminated note */}
+                                      {isLast && isCompleted && (
+                                        <Text style={{ fontSize: 10, color: '#f59e0b', marginTop: 4, fontWeight: '600' }}>
+                                          ⚡ Kết thúc hành trình tại vòng này
+                                        </Text>
+                                      )}
+                                    </View>
+                                  </View>
+                                );
+                              })}
+                            </View>
+                          );
                         })()}
                       </View>
                     ))}
@@ -695,6 +819,13 @@ export default function TournamentsScreen() {
                 <View style={{ flex: 1 }}>
                   <ScrollView contentContainerStyle={styles.detailScrollContent} showsVerticalScrollIndicator={false}>
                     
+                    {/* Banner Image in Detail Modal */}
+                    {selectedTour.bannerUrl ? (
+                      <View style={{ height: 160, borderRadius: 16, overflow: 'hidden', marginBottom: 14, backgroundColor: '#000' }}>
+                        <Image source={{ uri: selectedTour.bannerUrl }} style={{ width: '100%', height: '100%' }} resizeMode="cover" />
+                      </View>
+                    ) : null}
+
                     <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12, gap: 10 }}>
                       <View style={{ flex: 1 }}>
                         <Text style={[styles.detailTourName, { color: colors.text, marginBottom: 0 }]}>
@@ -711,7 +842,7 @@ export default function TournamentsScreen() {
                     <View style={styles.detailMetaRow}>
                       <MaterialCommunityIcons name="map-marker" size={16} color={colors.primary} />
                       <Text style={[styles.detailMetaText, { color: colors.textSecondary }]}>
-                        {selectedTour.location || 'TBD'}
+                        {selectedTour.location || 'TP. Hồ Chí Minh, Việt Nam'}
                       </Text>
                     </View>
 
@@ -723,9 +854,16 @@ export default function TournamentsScreen() {
                     </View>
 
                     <View style={styles.detailMetaRow}>
+                      <MaterialCommunityIcons name="account-group" size={16} color={colors.accent} />
+                      <Text style={[styles.detailMetaText, { color: colors.accent, fontWeight: '700' }]}>
+                        Sức chứa tối đa: {selectedTour.maxParticipants || 40} thí sinh
+                      </Text>
+                    </View>
+
+                    <View style={styles.detailMetaRow}>
                       <MaterialCommunityIcons name="clock-outline" size={16} color={colors.primary} />
                       <Text style={[styles.detailMetaText, { color: colors.textSecondary }]}>
-                        Reg: {formatDates(selectedTour.registrationOpenAt, selectedTour.registrationCloseAt)}
+                        Mở Đăng Ký: {formatDates(selectedTour.registrationOpenAt, selectedTour.registrationCloseAt)}
                       </Text>
                     </View>
 
@@ -849,6 +987,48 @@ const styles = StyleSheet.create({
   // Cards
   card: { borderRadius: 16, borderWidth: 1, overflow: 'hidden', elevation: 1 },
   cardCompleted: { opacity: 0.62 }, // Grayscale visual style for completed tournaments
+  cardBannerContainer: {
+    height: 135,
+    width: '100%',
+    position: 'relative',
+    backgroundColor: '#000',
+  },
+  cardBannerImage: {
+    width: '100%',
+    height: '100%',
+  },
+  cardBannerOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0,0,0,0.3)',
+  },
+  cardCapacityBadge: {
+    position: 'absolute',
+    top: 10,
+    right: 10,
+    backgroundColor: 'rgba(0,0,0,0.72)',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(245,158,11,0.4)',
+  },
+  cardCapacityBadgeText: {
+    color: '#f59e0b',
+    fontSize: 10,
+    fontWeight: '900',
+  },
+  capacityBarBg: {
+    height: 5,
+    borderRadius: 3,
+    backgroundColor: 'rgba(255,255,255,0.1)',
+    overflow: 'hidden',
+    marginTop: 6,
+    width: '100%',
+  },
+  capacityBarFill: {
+    height: '100%',
+    borderRadius: 3,
+  },
   cardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', padding: 14, gap: 10 },
   cardDate: { fontSize: 10.5, fontWeight: '800', letterSpacing: 0.5, textTransform: 'uppercase' },
   cardTitle: { fontSize: 15, fontWeight: '700', marginTop: 2, lineHeight: 20 },
