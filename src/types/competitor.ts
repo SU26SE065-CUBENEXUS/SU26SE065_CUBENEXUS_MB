@@ -4,14 +4,25 @@ export type RegistrationStatus = 'PENDING' | 'CONFIRMED' | 'CANCELLED' | 'CHECKE
 
 export type OfflineRegistrationEventStatus = 'REGISTERED' | 'WITHDRAWN';
 
+export interface SolveDetailDto {
+  solveNumber: number;
+  rawTimeMs?: number | null;
+  penaltyTypeId?: string | null;
+  finalTimeMs?: number | null;
+  isDnf: boolean;
+  evidencePhotoUrl?: string | null;
+}
+
 export interface CompetitorAssignmentDto {
   roundNumber: number;
   groupId: string;
   groupName: string;
   stationNumber?: number | null;
   groupStatusCode: string;
+  competitorStatusCode?: string | null;
   scheduledAt?: string | null;
   isPublished: boolean;
+  solves?: SolveDetailDto[];
 }
 
 export interface RegisteredEventDetailDto {
