@@ -73,14 +73,14 @@ export default function TournamentsScreen() {
   }, [params.segment]);
   const [registrations, setRegistrations] = useState<RegistrationDto[]>([]);
   const [publicTournaments, setPublicTournaments] = useState<TournamentDetailDto[]>([]);
-  
+
   const [isLoading, setIsLoading] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
-  
+
   // Modal states
   const [selectedReg, setSelectedReg] = useState<RegistrationDto | null>(null);
   const [selectedTour, setSelectedTour] = useState<TournamentDetailDto | null>(null);
-  
+
   const [showQrModal, setShowQrModal] = useState(false);
   const [showScheduleModal, setShowScheduleModal] = useState(false);
   const [showDetailModal, setShowDetailModal] = useState(false);
@@ -229,7 +229,7 @@ export default function TournamentsScreen() {
   const completedRegistrations = registrations.filter(
     (r) => r.tournamentStatusCode === 'COMPLETED'
   );
-  
+
   const completedPublicTournaments = publicTournaments.filter(
     (t) => t.statusCode === 'COMPLETED' && !getRegistrationForTournament(t.id)
   );
@@ -239,7 +239,7 @@ export default function TournamentsScreen() {
     const start = new Date(startStr);
     const end = endStr ? new Date(endStr) : null;
     const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-    
+
     const startFormatted = `${months[start.getMonth()]} ${start.getDate()}`;
     if (end && start.getMonth() === end.getMonth()) {
       return `${startFormatted} - ${end.getDate()}, ${start.getFullYear()}`;
@@ -269,7 +269,7 @@ export default function TournamentsScreen() {
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
-        
+
         {/* Header Title */}
         <View style={[styles.header, { borderBottomColor: colors.border }]}>
           <Text style={[styles.headerTitle, { color: colors.text }]}>Tournament Hub</Text>
@@ -325,7 +325,7 @@ export default function TournamentsScreen() {
             </View>
           ) : (
             <View style={styles.listContainer}>
-              
+
               {/* SEGMENT 1: MY REGISTRATIONS */}
               {activeSegment === 'MY_REGS' && (
                 <View style={styles.section}>
@@ -594,7 +594,7 @@ export default function TournamentsScreen() {
                   <MaterialCommunityIcons name="close" size={22} color={colors.text} />
                 </TouchableOpacity>
               </View>
-              
+
               {selectedReg && (
                 <View style={styles.modalBody}>
                   <Text style={[styles.modalTourName, { color: colors.text }]} numberOfLines={2}>
@@ -603,7 +603,7 @@ export default function TournamentsScreen() {
                   <Text style={[styles.modalCompName, { color: colors.primary }]}>
                     {user?.displayName}
                   </Text>
-                  
+
                   <View style={[styles.modalBadge, { backgroundColor: getStatusColor(selectedReg.statusCode) + '15', borderColor: getStatusColor(selectedReg.statusCode) + '30' }]}>
                     <Text style={[styles.modalBadgeText, { color: getStatusColor(selectedReg.statusCode) }]}>
                       STATUS: {selectedReg.statusCode}
@@ -643,7 +643,7 @@ export default function TournamentsScreen() {
                   <MaterialCommunityIcons name="close" size={22} color={colors.text} />
                 </TouchableOpacity>
               </View>
-              
+
               {selectedReg && (
                 <ScrollView contentContainerStyle={styles.scheduleBody}>
                   <Text style={[styles.modalTourName, { color: colors.text, marginBottom: 12 }]} numberOfLines={2}>
@@ -654,7 +654,7 @@ export default function TournamentsScreen() {
                   <Text style={[styles.scheduleSectionHeading, { color: colors.text, marginBottom: 8 }]}>
                     Registered Events ({selectedReg.registeredEvents.length})
                   </Text>
-                  
+
                   <View style={styles.eventsListContainer}>
                     {selectedReg.registeredEvents.map((evt) => (
                       <View key={evt.registrationEventId} style={[styles.eventListItemBox, { borderColor: colors.border, backgroundColor: colors.background }]}>
@@ -679,7 +679,7 @@ export default function TournamentsScreen() {
                           const assignments = evt.assignments;
                           if (!assignments || assignments.length === 0) {
                             return (
-                              <View style={styles.assignmentPendingContainer}>
+                              <View style={[styles.assignmentPendingContainer, { borderTopColor: colors.border }]}>
                                 <MaterialCommunityIcons name="help-circle-outline" size={14} color={colors.textSecondary} />
                                 <Text style={[styles.assignmentPendingText, { color: colors.textSecondary }]}>
                                   Ban Tổ Chức chưa phân nhóm thi đấu
@@ -701,8 +701,8 @@ export default function TournamentsScreen() {
                                 const dotColor = isCompleted
                                   ? '#6b7280'
                                   : isOngoing
-                                  ? colors.success
-                                  : colors.accent;
+                                    ? colors.success
+                                    : colors.accent;
 
                                 const bgColor = isCurrentActive
                                   ? (isOngoing ? colors.success + '15' : colors.accent + '12')
@@ -736,16 +736,16 @@ export default function TournamentsScreen() {
                                       <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
                                         <Text style={{ fontSize: 12, fontWeight: '800', color: isCompleted ? colors.textSecondary : colors.text }}>
                                           Vòng {a.roundNumber}
-                                          {isCurrentActive && isOngoing ? ' 🔴 ĐANG THI' : ''}
-                                          {isCurrentActive && isPending ? ' ⏳ SẮP BẮT ĐẦU' : ''}
+                                          {isCurrentActive && isOngoing ? '  ĐANG THI' : ''}
+                                          {isCurrentActive && isPending ? '  SẮP BẮT ĐẦU' : ''}
                                         </Text>
                                         <View style={{
                                           paddingHorizontal: 7, paddingVertical: 2, borderRadius: 5,
                                           backgroundColor: isCompleted
                                             ? '#37415133'
                                             : isOngoing
-                                            ? colors.success + '25'
-                                            : colors.accent + '20',
+                                              ? colors.success + '25'
+                                              : colors.accent + '20',
                                         }}>
                                           <Text style={{
                                             fontSize: 9, fontWeight: '800',
@@ -818,7 +818,7 @@ export default function TournamentsScreen() {
               {selectedTour && (
                 <View style={{ flex: 1 }}>
                   <ScrollView contentContainerStyle={styles.detailScrollContent} showsVerticalScrollIndicator={false}>
-                    
+
                     {/* Banner Image in Detail Modal */}
                     {selectedTour.bannerUrl ? (
                       <View style={{ height: 160, borderRadius: 16, overflow: 'hidden', marginBottom: 14, backgroundColor: '#000' }}>
@@ -906,7 +906,7 @@ export default function TournamentsScreen() {
                                 Format: {evt.eventFormatCode} • Solves: {evt.solveCount}
                               </Text>
                             </View>
-                            
+
                             {!isRegistered && (
                               <MaterialCommunityIcons
                                 name={isSelected ? "checkbox-marked" : "checkbox-blank-outline"}
@@ -973,12 +973,12 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
   },
   headerTitle: { fontSize: 18, fontWeight: '900', letterSpacing: -0.2 },
-  
+
   // Tabs Bar
   tabBar: { flexDirection: 'row', height: 44, borderBottomWidth: 1 },
   tabItem: { flex: 1, justifyContent: 'center', alignItems: 'center', borderBottomWidth: 2, borderBottomColor: 'transparent' },
   tabLabel: { fontSize: 12, fontWeight: '800' },
-  
+
   scrollContent: { paddingHorizontal: 16, paddingTop: 14, paddingBottom: 40 },
   listContainer: { gap: 14 },
   section: { gap: 12 },
@@ -1036,7 +1036,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8, paddingVertical: 2, borderRadius: 20, borderWidth: 1,
   },
   statusBadgeText: { fontSize: 8.5, fontWeight: '700', letterSpacing: 0.5 },
-  
+
   detailsRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 12, paddingHorizontal: 14, paddingBottom: 14 },
   detailItem: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   detailText: { fontSize: 12, fontWeight: '600' },
@@ -1083,14 +1083,14 @@ const styles = StyleSheet.create({
   eventListSub: { fontSize: 11, fontWeight: '500', marginTop: 1 },
   eventListBadge: { paddingHorizontal: 8, paddingVertical: 2, borderRadius: 6 },
   eventListBadgeText: { fontSize: 8.5, fontWeight: '700' },
-  
+
   // Real Assignments
-  assignmentDetailsContainer: { borderTopWidth: 0.5, borderTopColor: 'rgba(255,255,255,0.1)', paddingTop: 8, gap: 6 },
+  assignmentDetailsContainer: { borderTopWidth: 0.5, paddingTop: 8, gap: 6 },
   assignmentGroupBadge: { flexDirection: 'row', alignItems: 'center', gap: 4, alignSelf: 'flex-start', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 20, borderWidth: 1, marginBottom: 2 },
   assignmentGroupBadgeText: { fontSize: 9, fontWeight: '800', letterSpacing: 0.6 },
   assignmentDetailsRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   assignmentDetailsText: { fontSize: 12, fontWeight: '600' },
-  assignmentPendingContainer: { flexDirection: 'row', alignItems: 'center', gap: 6, borderTopWidth: 0.5, borderTopColor: 'rgba(255,255,255,0.1)', paddingTop: 8 },
+  assignmentPendingContainer: { flexDirection: 'row', alignItems: 'center', gap: 6, borderTopWidth: 0.5, paddingTop: 8 },
   assignmentPendingText: { fontSize: 11, fontWeight: '500', flex: 1 },
 
   // Tournament Detail & Registration Modal

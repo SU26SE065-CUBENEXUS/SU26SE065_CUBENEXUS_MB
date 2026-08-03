@@ -3,6 +3,7 @@ import { View, Text, TouchableOpacity, StyleSheet, Image } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Colors } from '@/constants/theme';
+import { useTheme } from '@/hooks/use-theme';
 import { useAuth } from '@/contexts/AuthContext';
 import { JudgeDutyMode } from '../types';
 
@@ -12,7 +13,7 @@ interface Props {
 }
 
 export default function JudgeDutySelection({ onSelectDuty, onLogout }: Props) {
-  const colors = Colors.dark;
+  const colors = useTheme();
   const { user } = useAuth();
   const roleUpper = (user?.role || '').toUpperCase();
   const isCheckInRole = roleUpper.includes('CHECK_IN') || roleUpper.includes('CHECKIN') || roleUpper.includes('RECEPTION');

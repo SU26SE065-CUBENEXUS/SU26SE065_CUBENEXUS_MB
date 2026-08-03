@@ -717,8 +717,6 @@ const styles = StyleSheet.create({
     width: 28,
     height: 28,
     borderRadius: 6,
-    borderWidth: 0.5,
-    borderColor: '#1f212e',
   },
   miniBrandRow: {
     flexDirection: 'row',

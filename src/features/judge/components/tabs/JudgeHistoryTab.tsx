@@ -80,15 +80,15 @@ export default function JudgeHistoryTab() {
 
             {/* Evidence Photo Banner */}
             {item.evidencePhotoUrl ? (
-              <View style={styles.photoContainer}>
+              <View style={[styles.photoContainer, { borderTopColor: colors.border }]}>
                 <TouchableOpacity
-                  style={styles.photoThumbBtn}
+                  style={[styles.photoThumbBtn, { backgroundColor: colors.backgroundSelected }]}
                   onPress={() => setSelectedPhoto(item.evidencePhotoUrl || null)}
                 >
-                  <Image source={{ uri: item.evidencePhotoUrl }} style={styles.photoThumb} />
+                  <Image source={{ uri: item.evidencePhotoUrl }} style={[styles.photoThumb, { borderColor: colors.border }]} />
                   <View style={styles.photoBadge}>
-                    <MaterialCommunityIcons name="eye-outline" size={12} color="#fff" />
-                    <Text style={styles.photoBadgeText}>Xem Tờ Ghi Điểm / Minh Chứng</Text>
+                    <MaterialCommunityIcons name="eye-outline" size={12} color={colors.primary} />
+                    <Text style={[styles.photoBadgeText, { color: colors.primary }]}>Xem Tờ Ghi Điểm / Minh Chứng</Text>
                   </View>
                 </TouchableOpacity>
               </View>

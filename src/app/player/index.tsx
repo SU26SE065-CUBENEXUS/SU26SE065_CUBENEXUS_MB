@@ -64,9 +64,12 @@ export default function PlayerHome() {
 
   // Find first active published event assignment
   const activeEventWithAssignment = activeTournament?.registeredEvents?.find(
-    (evt) => evt.assignment && evt.assignment.isPublished
+    (evt) => {
+      const a = evt.assignment || evt.assignments?.[0];
+      return a && a.isPublished;
+    }
   );
-  const activeAssignment = activeEventWithAssignment?.assignment;
+  const activeAssignment = activeEventWithAssignment?.assignment || activeEventWithAssignment?.assignments?.[0];
 
   // Format tournament dates
   const formatDates = (startStr?: string | null, endStr?: string | null) => {
@@ -243,7 +246,7 @@ export default function PlayerHome() {
                     EVENT ASSIGNMENTS
                   </Text>
                   {activeTournament.registeredEvents.map((evt) => {
-                    const a = evt.assignment;
+                    const a = evt.assignment || evt.assignments?.[0];
                     // groupStatusCode in DB: PENDING | ONGOING | LOCKED | COMPLETED
                     const hasGroup = a != null;
                     const isAssignmentPublished = hasGroup && a!.isPublished;

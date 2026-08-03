@@ -24,6 +24,7 @@ export interface RegisteredEventDetailDto {
   seedSourceCode?: string | null;
   seedGeneratedAt?: string | null;
   assignments?: CompetitorAssignmentDto[] | null;
+  assignment?: CompetitorAssignmentDto | null;
 }
 
 export interface RegistrationDto {

@@ -80,7 +80,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   glowContainer: {
-    ...StyleSheet.absoluteFill,
+    ...StyleSheet.absoluteFillObject,
     overflow: 'hidden',
     zIndex: 0,
   },

@@ -384,14 +384,14 @@ export default function JudgeScoreTab({
         <Text style={[styles.ctxLine, { color: colors.text }]}>
           {event?.puzzleTypeName || 'Hạng Mục'} | Vòng {laneConfig?.roundNumber || 1} | Station {laneConfig?.stationNumber || 1}
         </Text>
-        <View style={styles.ctxSep} />
+        <View style={[styles.ctxSep, { backgroundColor: colors.border }]} />
         <View style={styles.ctxRow}>
           <View>
-            <Text style={styles.ctxLabel}>ĐẤU THỦ</Text>
+            <Text style={[styles.ctxLabel, { color: colors.textSecondary }]}>ĐẤU THỦ</Text>
             <Text style={[styles.ctxValue, { color: colors.text }]}>{selectedCompetitor.competitorName}</Text>
           </View>
           <View style={{ alignItems: 'flex-end' }}>
-            <Text style={styles.ctxLabel}>LƯỢT THI</Text>
+            <Text style={[styles.ctxLabel, { color: colors.textSecondary }]}>LƯỢT THI</Text>
             <Text style={[styles.ctxValue, { color: colors.accent }]}>Lượt {activeSolveNumber}/{totalSolveCount}</Text>
           </View>
         </View>
@@ -403,7 +403,7 @@ export default function JudgeScoreTab({
             <MaterialCommunityIcons name="cube-outline" size={14} color={colors.accent} />
             <Text style={[styles.cardTitle, { color: colors.text }]}>MÃ TRÁO CẦU THI ĐẤU (SCRAMBLE)</Text>
           </View>
-          <View style={[styles.scrambleBox, { backgroundColor: colors.background }]}>
+          <View style={[styles.scrambleBox, { backgroundColor: colors.background, borderColor: colors.border }]}>
             <Text style={styles.scrambleText}>{currentScramble.sequence}</Text>
           </View>
         </View>

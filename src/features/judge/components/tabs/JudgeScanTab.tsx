@@ -175,9 +175,9 @@ export default function JudgeScanTab({
   if (!laneConfig) {
     return (
       <View style={styles.notConfigured}>
-        <MaterialCommunityIcons name="connection" size={36} color={Colors.dark.border} />
-        <Text style={[styles.notConfiguredTitle, { color: Colors.dark.textSecondary }]}>Trạm Chưa Được Kết Nối</Text>
-        <Text style={[styles.notConfiguredSub, { color: Colors.dark.textSecondary }]}>
+        <MaterialCommunityIcons name="connection" size={36} color={colors.border} />
+        <Text style={[styles.notConfiguredTitle, { color: colors.textSecondary }]}>Trạm Chưa Được Kết Nối</Text>
+        <Text style={[styles.notConfiguredSub, { color: colors.textSecondary }]}>
           Vui lòng sang tab Cấu Hình để chọn Vòng thi và kết nối trạm chấm điểm.
         </Text>
       </View>

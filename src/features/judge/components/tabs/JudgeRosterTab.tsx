@@ -11,7 +11,7 @@ interface Props {
   onSelectCompetitor: (competitor: JudgeStationCompetitor) => void;
 }
 
-function getDisplayState(competitor: JudgeStationCompetitor): { label: string; color: string; background: string } {
+function getDisplayState(competitor: JudgeStationCompetitor, colors: any): { label: string; color: string; background: string } {
   if (competitor.isCutoffReached) {
     return { label: 'TRƯỢT CUTOFF', color: '#f97316', background: '#f9731612' };
   }
@@ -19,21 +19,21 @@ function getDisplayState(competitor: JudgeStationCompetitor): { label: string; c
     return { label: 'CÓ LỖI', color: '#ef4444', background: '#ef444412' };
   }
   if (competitor.sessionState === 'SCORING') {
-    return { label: 'ĐANG CHẤM', color: Colors.dark.primary, background: Colors.dark.primary + '12' };
+    return { label: 'ĐANG CHẤM', color: colors.primary, background: colors.primary + '15' };
   }
   if (competitor.sessionState === 'VERIFIED') {
-    return { label: 'ĐÃ XÁC NHẬN', color: '#f59e0b', background: '#f59e0b12' };
+    return { label: 'ĐÃ XÁC NHẬN', color: '#f59e0b', background: '#f59e0b15' };
   }
   if (competitor.backendStatus === 'DONE') {
-    return { label: 'HOÀN THÀNH', color: '#10b981', background: '#10b98112' };
+    return { label: 'HOÀN THÀNH', color: '#10b981', background: '#10b98115' };
   }
   if (competitor.backendStatus === 'PARTIAL') {
-    return { label: 'ĐANG THI', color: '#38bdf8', background: '#38bdf812' };
+    return { label: 'ĐANG THI', color: '#38bdf8', background: '#38bdf815' };
   }
   if (competitor.backendStatus === 'ABSENT' || competitor.backendStatus === 'DNS') {
-    return { label: competitor.backendStatus, color: '#ef4444', background: '#ef444412' };
+    return { label: competitor.backendStatus, color: '#ef4444', background: '#ef444415' };
   }
-  return { label: 'CHỜ QUÉT MÃ', color: Colors.dark.textSecondary, background: 'rgba(255,255,255,0.05)' };
+  return { label: 'CHỜ QUÉT MÃ', color: colors.textSecondary, background: colors.backgroundSelected };
 }
 
 export default function JudgeRosterTab({

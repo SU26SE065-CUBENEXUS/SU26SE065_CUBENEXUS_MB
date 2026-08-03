@@ -23,7 +23,7 @@ interface Props {
 }
 
 export default function StationJudgeMode({ token, onChangeDuty, onLogout }: Props) {
-  const colors = Colors.dark;
+  const colors = useTheme();
   const [activeTab, setActiveTab] = useState<StationTab>('station');
   const [selectedCompId, setSelectedCompId] = useState<string | null>(getSelectedCompetitorId());
 

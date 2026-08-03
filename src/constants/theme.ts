@@ -9,15 +9,15 @@ import { Platform } from 'react-native';
 
 export const Colors = {
   light: {
-    text: '#0e1118',
-    background: '#f8f9fa',
+    text: '#0f172a',
+    background: '#f8fafc',
     backgroundElement: '#ffffff',
-    backgroundSelected: '#e9ecef',
-    textSecondary: '#6c757d',
+    backgroundSelected: '#e2e8f0',
+    textSecondary: '#475569',
     primary: '#ff5a36', // Rubik orange-red
-    accent: '#ffd166',  // Rubik yellow
-    success: '#06d6a0', // Rubik green
-    border: '#e2e8f0',
+    accent: '#d97706',  // Warm amber gold for sharp light-mode legibility
+    success: '#059669', // Emerald green
+    border: '#cbd5e1',
     card: '#ffffff',
   },
   dark: {

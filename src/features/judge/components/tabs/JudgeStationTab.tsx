@@ -84,29 +84,29 @@ export default function JudgeStationTab({
           <Text style={[styles.cardLabel, { color: colors.primary }]}>TRẠM ĐANG TRỰC CHẤM ĐIỂM</Text>
           <View style={styles.laneGrid}>
             <View style={styles.laneCell}>
-              <Text style={styles.laneCellKey}>GIẢI ĐẤU</Text>
+              <Text style={[styles.laneCellKey, { color: colors.textSecondary }]}>GIẢI ĐẤU</Text>
               <Text style={[styles.laneCellVal, { color: colors.text }]} numberOfLines={1}>
                 {activeTournament?.name || '—'}
               </Text>
             </View>
             <View style={styles.laneCell}>
-              <Text style={styles.laneCellKey}>HẠNG MỤC</Text>
+              <Text style={[styles.laneCellKey, { color: colors.textSecondary }]}>HẠNG MỤC</Text>
               <Text style={[styles.laneCellVal, { color: colors.text }]}>
                 {activeEvent?.puzzleTypeName || '—'}
               </Text>
             </View>
             <View style={styles.laneCell}>
-              <Text style={styles.laneCellKey}>VÒNG THI</Text>
+              <Text style={[styles.laneCellKey, { color: colors.textSecondary }]}>VÒNG THI</Text>
               <Text style={[styles.laneCellVal, { color: colors.text }]}>Vòng {laneConfig.roundNumber}</Text>
             </View>
             <View style={styles.laneCell}>
-              <Text style={styles.laneCellKey}>NHÓM THI</Text>
+              <Text style={[styles.laneCellKey, { color: colors.textSecondary }]}>NHÓM THI</Text>
               <Text style={[styles.laneCellVal, { color: colors.text }]}>
                 {laneConfig.groupNumber === 0 || !laneConfig.groupNumber ? 'Tất cả các Group' : `Group ${laneConfig.groupNumber}`}
               </Text>
             </View>
             <View style={styles.laneCell}>
-              <Text style={styles.laneCellKey}>TRẠM CHẤM</Text>
+              <Text style={[styles.laneCellKey, { color: colors.textSecondary }]}>TRẠM CHẤM</Text>
               <Text style={[styles.laneCellVal, { color: colors.accent }]}>Station {laneConfig.stationNumber}</Text>
             </View>
           </View>
@@ -149,31 +149,49 @@ export default function JudgeStationTab({
           {/* Event Selection */}
           <Text style={[styles.fieldLabel, { color: colors.textSecondary, marginTop: 10 }]}>2. Hạng mục thi đấu (Event)</Text>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipRow}>
-            {activeTournament?.events?.map((e: any) => (
-              <TouchableOpacity
-                key={e.id}
-                style={[styles.chip, selectedEventId === e.id && { backgroundColor: colors.primary }]}
-                onPress={() => setSelectedEventId(e.id)}
-              >
-                <Text style={[styles.chipText, { color: colors.text }]}>
-                  {e.puzzleTypeName} ({e.eventFormatCode})
-                </Text>
-              </TouchableOpacity>
-            ))}
+            {activeTournament?.events?.map((e: any) => {
+              const isSelected = selectedEventId === e.id;
+              return (
+                <TouchableOpacity
+                  key={e.id}
+                  style={[
+                    styles.chip,
+                    {
+                      backgroundColor: isSelected ? colors.primary : colors.backgroundSelected,
+                      borderColor: isSelected ? colors.primary : colors.border,
+                    }
+                  ]}
+                  onPress={() => setSelectedEventId(e.id)}
+                >
+                  <Text style={[styles.chipText, { color: isSelected ? '#ffffff' : colors.text }]}>
+                    {e.puzzleTypeName} ({e.eventFormatCode})
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
           </ScrollView>
 
           {/* Round Selection */}
           <Text style={[styles.fieldLabel, { color: colors.textSecondary, marginTop: 10 }]}>3. Chọn Vòng thi (Round)</Text>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipRow}>
-            {['1', '2', '3', '4'].map(r => (
-              <TouchableOpacity
-                key={r}
-                style={[styles.chip, roundNumber === r && { backgroundColor: colors.primary }]}
-                onPress={() => setRoundNumber(r)}
-              >
-                <Text style={[styles.chipText, { color: colors.text }]}>Round {r}</Text>
-              </TouchableOpacity>
-            ))}
+            {['1', '2', '3', '4'].map(r => {
+              const isSelected = roundNumber === r;
+              return (
+                <TouchableOpacity
+                  key={r}
+                  style={[
+                    styles.chip,
+                    {
+                      backgroundColor: isSelected ? colors.primary : colors.backgroundSelected,
+                      borderColor: isSelected ? colors.primary : colors.border,
+                    }
+                  ]}
+                  onPress={() => setRoundNumber(r)}
+                >
+                  <Text style={[styles.chipText, { color: isSelected ? '#ffffff' : colors.text }]}>Round {r}</Text>
+                </TouchableOpacity>
+              );
+            })}
           </ScrollView>
 
           {/* Pre-assigned Station & Group Auto Banner */}
@@ -240,11 +258,11 @@ const styles = StyleSheet.create({
   cardLabel: { fontSize: 10, fontWeight: '900', letterSpacing: 0.6 },
   laneGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginTop: 6 },
   laneCell: { minWidth: '45%' },
-  laneCellKey: { fontSize: 8, color: 'rgba(255,255,255,0.4)', fontWeight: '800' },
+  laneCellKey: { fontSize: 8.5, fontWeight: '800' },
   laneCellVal: { fontSize: 12, fontWeight: '800', marginTop: 1 },
   fieldLabel: { fontSize: 9, fontWeight: '800', marginBottom: 4 },
   chipRow: { gap: 6, marginBottom: 4 },
-  chip: { paddingHorizontal: 10, paddingVertical: 5, borderRadius: 6, backgroundColor: '#1e2030' },
+  chip: { paddingHorizontal: 10, paddingVertical: 5, borderRadius: 6, borderWidth: 1 },
   chipText: { fontSize: 10, fontWeight: '700' },
   numberRow: { flexDirection: 'row', gap: 8, marginTop: 10 },
   numberInput: { height: 36, borderWidth: 1, borderRadius: 6, paddingHorizontal: 8, fontSize: 13, fontWeight: '800' },
