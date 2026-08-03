@@ -8,6 +8,9 @@ export interface AuthUser {
   email: string;
   displayName: string;
   role: string;
+  phone?: string | null;
+  address?: string | null;
+  avatarUrl?: string | null;
   judgeRoleCode?: string | null;
   assignedStationNumber?: number | null;
   assignedTournamentId?: string | null;
@@ -20,6 +23,7 @@ interface AuthContextValue {
   isLoading: boolean;
   login: (email: string, password: string) => Promise<void>;
   logout: () => void;
+  updateUserLocalState: (partial: Partial<AuthUser>) => void;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -207,6 +211,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setAccessToken(null);
   }, []);
 
+  const updateUserLocalState = useCallback((partial: Partial<AuthUser>) => {
+    setUser((prev) => (prev ? { ...prev, ...partial } : prev));
+  }, []);
+
   return (
     <AuthContext.Provider
       value={{
@@ -216,6 +224,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         isLoading,
         login,
         logout,
+        updateUserLocalState,
       }}
     >
       {children}
