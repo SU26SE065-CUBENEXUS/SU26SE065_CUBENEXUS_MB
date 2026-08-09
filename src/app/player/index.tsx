@@ -18,6 +18,7 @@ import { Colors } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useAuth } from '@/contexts/AuthContext';
+import { formatEventLabel } from '@/utils/eventFormatter';
 import { fetchCompetitorRegistrations } from '@/services/competitorService';
 import { RegistrationDto } from '@/types/competitor';
 
@@ -271,7 +272,7 @@ export default function PlayerHome() {
                             styles.assignmentTitle,
                             { color: isAssignmentPublished ? (scheme === 'dark' ? colors.accent : colors.primary) : colors.textSecondary }
                           ]}>
-                            {evt.puzzleTypeName.toUpperCase()}
+                            {formatEventLabel(evt).toUpperCase()}
                           </Text>
                         </View>
 

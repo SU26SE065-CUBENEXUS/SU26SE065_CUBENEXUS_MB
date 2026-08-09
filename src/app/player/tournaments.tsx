@@ -19,6 +19,7 @@ import { Colors } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useAuth } from '@/contexts/AuthContext';
+import { formatEventLabel } from '@/utils/eventFormatter';
 import { useLocalSearchParams } from 'expo-router';
 import {
   fetchCompetitorRegistrations,
