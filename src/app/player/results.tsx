@@ -15,6 +15,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useAuth } from '@/contexts/AuthContext';
 import { fetchCompetitorRegistrations } from '@/services/competitorService';
 import { RegistrationDto, SolveDetailDto } from '@/types/competitor';
+import { formatEventLabel } from '@/utils/eventFormatter';
 
 interface SolveRecord {
   solveNumber: number;
@@ -163,11 +164,12 @@ export default function ResultsScreen() {
       if (!reg.registeredEvents) return;
 
       reg.registeredEvents.forEach((evt) => {
-        const typeCode = evt.puzzleTypeName.toUpperCase().replace(/\s+/g, '_') || evt.eventId;
+        const formattedLabel = formatEventLabel(evt);
+        const typeCode = evt.eventId || evt.puzzleTypeName.toUpperCase().replace(/\s+/g, '_');
         
         if (!map.has(typeCode)) {
           map.set(typeCode, {
-            puzzleTypeName: evt.puzzleTypeName || 'Speedcubing Event',
+            puzzleTypeName: formattedLabel,
             puzzleTypeCode: typeCode,
             eventFormatCode: evt.eventFormatCode || 'Ao5',
             pbSingleMs: null,
@@ -210,7 +212,7 @@ export default function ResultsScreen() {
             tournamentDate: reg.tournamentStartDate 
               ? new Date(reg.tournamentStartDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
               : 'Official',
-            eventName: evt.puzzleTypeName,
+            eventName: formattedLabel,
             puzzleTypeCode: typeCode,
             roundNumber: a.roundNumber,
             groupName: a.groupName || `Group ${a.groupId?.substring(0, 4)}`,

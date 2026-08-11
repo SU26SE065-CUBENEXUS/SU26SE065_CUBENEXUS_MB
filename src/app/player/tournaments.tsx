@@ -19,6 +19,7 @@ import { Colors } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useAuth } from '@/contexts/AuthContext';
+import { formatEventLabel } from '@/utils/eventFormatter';
 import { useLocalSearchParams } from 'expo-router';
 import {
   fetchCompetitorRegistrations,
@@ -661,7 +662,7 @@ export default function TournamentsScreen() {
                         <View style={styles.eventListItemHeader}>
                           <View>
                             <Text style={[styles.eventListName, { color: colors.text }]}>
-                              {evt.puzzleTypeName}
+                              {formatEventLabel(evt)}
                             </Text>
                             <Text style={[styles.eventListSub, { color: colors.textSecondary }]}>
                               Format: {evt.eventFormatCode}
@@ -900,7 +901,7 @@ export default function TournamentsScreen() {
                           >
                             <View style={{ flex: 1 }}>
                               <Text style={[styles.eventRegisterName, { color: colors.text }]}>
-                                {evt.puzzleTypeName}
+                                {formatEventLabel(evt)}
                               </Text>
                               <Text style={[styles.eventRegisterDetails, { color: colors.textSecondary }]}>
                                 Format: {evt.eventFormatCode} • Solves: {evt.solveCount}

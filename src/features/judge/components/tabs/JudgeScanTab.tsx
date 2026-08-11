@@ -12,6 +12,7 @@ import { CameraView, useCameraPermissions } from 'expo-camera';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Colors } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
+import { formatEventLabel } from '@/utils/eventFormatter';
 import { JudgeLaneConfig, JudgeStationCompetitor } from '../../types';
 
 function extractQrToken(data: string): string | null {
@@ -193,7 +194,7 @@ export default function JudgeScanTab({
         </Text>
         {activeEvent && (
           <Text style={[styles.contextChipText, { color: colors.primary }]}>
-            | {activeEvent.puzzleTypeName}
+            | {formatEventLabel(activeEvent)}
           </Text>
         )}
       </View>

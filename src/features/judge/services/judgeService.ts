@@ -707,14 +707,18 @@ export function useJudgeScoring(
       const laneConfig = getLaneConfig();
 
       if (formatType === 'MEDLEY') {
-        const detailsPayload = medleySolves.map((solve: any) => {
-          const penaltyCode = solve.penalty === '+2' ? 'PLUS_2' : solve.penalty === 'DNF' ? 'DNF' : 'OK';
-          const matchedPenalty = penaltyTypes.find((item: any) => item.code === penaltyCode);
+        const activeEv = getActiveEvent();
+        const subPuzzles = activeEv?.medleyPuzzles && activeEv.medleyPuzzles.length > 0 ? activeEv.medleyPuzzles : medleySolves;
+        const rawTimeMs = penalty === 'DNF' ? 0 : Math.round(parseFloat(stackmat || '0') * 1000);
+        const penaltyCode = penalty === '+2' ? 'PLUS_2' : penalty === 'DNF' ? 'DNF' : 'OK';
+        const matchedPenalty = penaltyTypes.find((item: any) => item.code === penaltyCode);
+
+        const detailsPayload = (subPuzzles.length > 0 ? subPuzzles : [{ id: '00000000-0000-0000-0000-000000000000' }]).map((p: any, idx: number) => {
           return {
-            medleyPuzzleId: solve.medleyPuzzleId,
-            rawTimeMs: parseFloat(solve.time) * 1000,
-            penaltyTypeId: matchedPenalty?.id || null,
-            scrambleId: solve.scrambleId || '00000000-0000-0000-0000-000000000000',
+            medleyPuzzleId: p.id || p.medleyPuzzleId || '00000000-0000-0000-0000-000000000000',
+            rawTimeMs: idx === 0 ? rawTimeMs : 0,
+            penaltyTypeId: idx === 0 ? (matchedPenalty?.id || null) : null,
+            scrambleId: currentScramble.scrambleId || '00000000-0000-0000-0000-000000000000',
           };
         });
 

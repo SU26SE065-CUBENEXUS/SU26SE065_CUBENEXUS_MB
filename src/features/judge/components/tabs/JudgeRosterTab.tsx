@@ -72,7 +72,7 @@ export default function JudgeRosterTab({
         renderItem={({ item }) => {
           const isSelected = selectedCompetitorId === item.groupCompetitorId;
           const status = getDisplayState(item, colors);
-          const canScore = item.sessionState === 'VERIFIED' || item.sessionState === 'SCORING' || item.backendStatus === 'PARTIAL';
+          const canScore = !item.isCutoffReached && item.canSubmit && (item.sessionState === 'VERIFIED' || item.sessionState === 'SCORING' || item.backendStatus === 'PARTIAL');
 
           return (
             <View style={[
@@ -117,7 +117,7 @@ export default function JudgeRosterTab({
                   </TouchableOpacity>
                 ) : (
                   <Text style={[styles.verifyHint, { color: colors.textSecondary }]}>
-                    {item.backendStatus === 'DONE' ? 'Đã Xong' : 'Quét QR xác nhận'}
+                    {item.isCutoffReached ? 'Dừng thi (Cutoff)' : item.backendStatus === 'DONE' ? 'Đã Xong' : 'Quét QR xác nhận'}
                   </Text>
                 )}
               </View>

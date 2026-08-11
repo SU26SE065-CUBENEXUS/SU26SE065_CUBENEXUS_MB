@@ -6,6 +6,7 @@ import {
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Colors } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
+import { formatEventLabel } from '@/utils/eventFormatter';
 
 interface Props {
   tournaments: any[];
@@ -92,7 +93,7 @@ export default function JudgeStationTab({
             <View style={styles.laneCell}>
               <Text style={[styles.laneCellKey, { color: colors.textSecondary }]}>HẠNG MỤC</Text>
               <Text style={[styles.laneCellVal, { color: colors.text }]}>
-                {activeEvent?.puzzleTypeName || '—'}
+                {activeEvent ? formatEventLabel(activeEvent) : '—'}
               </Text>
             </View>
             <View style={styles.laneCell}>
@@ -164,7 +165,7 @@ export default function JudgeStationTab({
                   onPress={() => setSelectedEventId(e.id)}
                 >
                   <Text style={[styles.chipText, { color: isSelected ? '#ffffff' : colors.text }]}>
-                    {e.puzzleTypeName} ({e.eventFormatCode})
+                    {formatEventLabel(e)}
                   </Text>
                 </TouchableOpacity>
               );

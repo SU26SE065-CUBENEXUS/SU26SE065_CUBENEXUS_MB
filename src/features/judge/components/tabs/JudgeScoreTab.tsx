@@ -16,6 +16,7 @@ import * as ImagePicker from 'expo-image-picker';
 import * as FileSystem from 'expo-file-system';
 import { Colors } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
+import { formatEventLabel } from '@/utils/eventFormatter';
 import { JudgeStationCompetitor, PenaltyMode } from '../../types';
 import { useJudgeScoring } from '../../services/judgeService';
 import { getActiveEvent, getActiveTournament, getLaneConfig } from '../../services/judgeStore';
@@ -239,12 +240,10 @@ export default function JudgeScoreTab({
   }, [medleySolves]);
 
   const isFormValid = useMemo(() => {
-    const timeOk = formatType === 'MEDLEY'
-      ? medleySolves.length > 0 && !medleySolves.some((solve: any) => !solve.time.trim() || isNaN(parseFloat(solve.time)) || parseFloat(solve.time) <= 0)
-      : (stackmat.trim() && !isNaN(parseFloat(stackmat)) && parseFloat(stackmat) > 0) || penalty === 'DNF';
+    const timeOk = (stackmat.trim() && !isNaN(parseFloat(stackmat)) && parseFloat(stackmat) > 0) || penalty === 'DNF';
     const signOk = drawingPoints.length > 0 || signName.trim().length > 0;
     return timeOk && signOk;
-  }, [drawingPoints, formatType, medleySolves, penalty, signName, stackmat]);
+  }, [drawingPoints, penalty, signName, stackmat]);
 
   const hasNextSolve = Boolean(selectedCompetitor?.canSubmit && selectedCompetitor?.nextSolveNumber);
 
@@ -313,13 +312,18 @@ export default function JudgeScoreTab({
     );
   }
 
-  if (selectedCompetitor.backendStatus === 'DONE' && !isSubmitted) {
+  if ((selectedCompetitor.isCutoffReached || !selectedCompetitor.canSubmit || selectedCompetitor.backendStatus === 'DONE') && !isSubmitted) {
+    const isCutoff = selectedCompetitor.isCutoffReached || (!selectedCompetitor.canSubmit && selectedCompetitor.submittedSolveCount < selectedCompetitor.totalSolveCount);
     return (
       <View style={styles.emptyWrap}>
-        <MaterialCommunityIcons name="check-decagram" size={40} color="#10b981" />
-        <Text style={[styles.emptyTitle, { color: colors.text }]}>Thí Sinh Đã Hoàn Thành Các Lượt Thi</Text>
+        <MaterialCommunityIcons name={isCutoff ? "alert-circle-outline" : "check-decagram"} size={40} color={isCutoff ? "#f97316" : "#10b981"} />
+        <Text style={[styles.emptyTitle, { color: colors.text }]}>
+          {isCutoff ? 'Thí Sinh Đã Dừng Thi (Trượt Cutoff)' : 'Thí Sinh Đã Hoàn Thành Các Lượt Thi'}
+        </Text>
         <Text style={[styles.emptySub, { color: colors.textSecondary }]}>
-          Hệ thống ghi nhận thí sinh đã hoàn thành {selectedCompetitor.submittedSolveCount}/{selectedCompetitor.totalSolveCount} lượt thi.
+          {isCutoff
+            ? `Thí sinh không đạt mốc Cutoff ở các lượt thi đầu (${selectedCompetitor.submittedSolveCount}/${selectedCompetitor.totalSolveCount} lượt). Không thể tiếp tục chấm lượt thi tiếp theo.`
+            : `Hệ thống ghi nhận thí sinh đã hoàn thành ${selectedCompetitor.submittedSolveCount}/${selectedCompetitor.totalSolveCount} lượt thi.`}
         </Text>
         <TouchableOpacity style={[styles.goRosterBtn, { borderColor: colors.border }]} onPress={handleBackToRoster}>
           <Text style={[styles.goRosterText, { color: colors.primary }]}>Trở Về Danh Sách Thí Sinh</Text>
@@ -382,7 +386,7 @@ export default function JudgeScoreTab({
       <View style={[styles.ctxCard, { backgroundColor: colors.backgroundElement, borderColor: colors.border }]}>
         <Text style={[styles.ctxTournament, { color: colors.primary }]}>{tournament?.name || 'Giải Thi Đấu'}</Text>
         <Text style={[styles.ctxLine, { color: colors.text }]}>
-          {event?.puzzleTypeName || 'Hạng Mục'} | Vòng {laneConfig?.roundNumber || 1} | Station {laneConfig?.stationNumber || 1}
+          {event ? formatEventLabel(event) : 'Hạng Mục'} | Vòng {laneConfig?.roundNumber || 1} | Station {laneConfig?.stationNumber || 1}
         </Text>
         <View style={[styles.ctxSep, { backgroundColor: colors.border }]} />
         <View style={styles.ctxRow}>
@@ -415,66 +419,45 @@ export default function JudgeScoreTab({
           <Text style={[styles.cardTitle, { color: colors.accent }]}>NHẬP THỜI GIAN THI ĐẤU</Text>
         </View>
 
-        {formatType !== 'MEDLEY' ? (
-          <View>
-            <Text style={[styles.fieldLabel, { color: colors.text }]}>Thời gian Stackmat (giây)</Text>
-            <TextInput
-              style={[styles.timeInput, { color: colors.text, borderColor: colors.border, backgroundColor: colors.background }]}
-              keyboardType="numeric"
-              placeholder="0.00"
-              placeholderTextColor={colors.textSecondary}
-              value={stackmat}
-              onChangeText={value => { if (!value.includes('-')) setStackmat(value); }}
-            />
-            <Text style={[styles.fieldLabel, { color: colors.text, marginTop: 12 }]}>Hình phạt WCA (Penalty)</Text>
-            <View style={styles.penaltyRow}>
-              {(['None', '+2', 'DNF'] as PenaltyMode[]).map(mode => (
-                <TouchableOpacity
-                  key={mode}
-                  style={[styles.penaltyBtn, { borderColor: colors.border }, penalty === mode && { backgroundColor: colors.primary, borderColor: colors.primary }]}
-                  onPress={() => setPenalty(mode)}
-                >
-                  <Text style={[styles.penaltyBtnText, { color: penalty === mode ? '#fff' : colors.text }]}>{mode}</Text>
-                </TouchableOpacity>
-              ))}
+        <View>
+          {formatType === 'MEDLEY' && (
+            <View style={{ backgroundColor: colors.accent + '15', borderColor: colors.accent + '30', borderWidth: 1, borderRadius: 8, padding: 8, marginBottom: 10 }}>
+              <Text style={{ color: colors.accent, fontSize: 11, fontWeight: '700' }}>
+                ⚡ Hạng mục Medley: Chỉ nhập 1 TỔNG THỜI GIAN duy nhất cho toàn bộ các khối.
+              </Text>
             </View>
-            <View style={[styles.resultCard, { backgroundColor: colors.background, borderColor: colors.border }]}>
-              <Text style={[styles.resultLabel, { color: colors.textSecondary }]}>Thời Gian Quyết Định</Text>
-              <Text style={[styles.resultValue, { color: penalty === 'DNF' ? '#ef4444' : colors.primary }]}>{finalTime}</Text>
-            </View>
-          </View>
-        ) : (
-          <View style={{ gap: 10 }}>
-            {medleySolves.map((solve: any, index: number) => (
-              <View key={solve.medleyPuzzleId} style={styles.medleyRow}>
-                <Text style={[styles.medleyLabel, { color: colors.text }]}>{solve.puzzleName}</Text>
-                <TextInput
-                  style={[styles.medleyInput, { color: colors.text, borderColor: colors.border, backgroundColor: colors.background }]}
-                  keyboardType="numeric"
-                  placeholder="Thời gian"
-                  placeholderTextColor={colors.textSecondary}
-                  value={solve.time}
-                  onChangeText={value => { if (!value.includes('-')) updateMedleySolve(index, 'time', value); }}
-                />
-                <View style={{ flexDirection: 'row', gap: 3 }}>
-                  {(['None', '+2', 'DNF'] as PenaltyMode[]).map(mode => (
-                    <TouchableOpacity
-                      key={mode}
-                      style={[styles.medleyPenBtn, { borderColor: colors.border }, solve.penalty === mode && { backgroundColor: colors.primary, borderColor: colors.primary }]}
-                      onPress={() => updateMedleySolve(index, 'penalty', mode)}
-                    >
-                      <Text style={{ fontSize: 9, fontWeight: '800', color: solve.penalty === mode ? '#fff' : colors.text }}>{mode}</Text>
-                    </TouchableOpacity>
-                  ))}
-                </View>
-              </View>
+          )}
+
+          <Text style={[styles.fieldLabel, { color: colors.text }]}>
+            {formatType === 'MEDLEY' ? 'Tổng Thời Gian Medley (giây)' : 'Thời gian Stackmat (giây)'}
+          </Text>
+          <TextInput
+            style={[styles.timeInput, { color: colors.text, borderColor: colors.border, backgroundColor: colors.background }]}
+            keyboardType="numeric"
+            placeholder="0.00"
+            placeholderTextColor={colors.textSecondary}
+            value={stackmat}
+            onChangeText={value => { if (!value.includes('-')) setStackmat(value); }}
+          />
+          <Text style={[styles.fieldLabel, { color: colors.text, marginTop: 12 }]}>Hình phạt WCA (Penalty)</Text>
+          <View style={styles.penaltyRow}>
+            {(['None', '+2', 'DNF'] as PenaltyMode[]).map(mode => (
+              <TouchableOpacity
+                key={mode}
+                style={[styles.penaltyBtn, { borderColor: colors.border }, penalty === mode && { backgroundColor: colors.primary, borderColor: colors.primary }]}
+                onPress={() => setPenalty(mode)}
+              >
+                <Text style={[styles.penaltyBtnText, { color: penalty === mode ? '#fff' : colors.text }]}>{mode}</Text>
+              </TouchableOpacity>
             ))}
-            <View style={[styles.resultCard, { backgroundColor: colors.background, borderColor: colors.border }]}>
-              <Text style={[styles.resultLabel, { color: colors.textSecondary }]}>Tổng Thời Gian Medley</Text>
-              <Text style={[styles.resultValue, { color: medleyResult === 'DNF' ? '#ef4444' : colors.primary }]}>{medleyResult}</Text>
-            </View>
           </View>
-        )}
+          <View style={[styles.resultCard, { backgroundColor: colors.background, borderColor: colors.border }]}>
+            <Text style={[styles.resultLabel, { color: colors.textSecondary }]}>
+              {formatType === 'MEDLEY' ? 'Tổng Thời Gian Medley' : 'Thời Gian Quyết Định'}
+            </Text>
+            <Text style={[styles.resultValue, { color: penalty === 'DNF' ? '#ef4444' : colors.primary }]}>{finalTime}</Text>
+          </View>
+        </View>
       </View>
 
       {/* EVIDENCE PHOTOS & SCORE SHEET CARD */}

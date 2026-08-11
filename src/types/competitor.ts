@@ -29,7 +29,9 @@ export interface RegisteredEventDetailDto {
   registrationEventId: string;
   eventId: string;
   puzzleTypeName: string;
+  puzzleTypeCode?: string;
   eventFormatCode: string;
+  medleyPuzzles?: MedleyPuzzleDetailDto[];
   statusCode: OfflineRegistrationEventStatus;
   seedTimeMs?: number | null;
   seedSourceCode?: string | null;
