@@ -31,10 +31,10 @@ export default function CheckInDeskMode({ token, onChangeDuty, onLogout }: Props
       <SafeAreaView style={styles.safe} edges={['top']}>
         {/* Header */}
         <View style={[styles.header, { borderBottomColor: colors.border }]}>
-          <TouchableOpacity onPress={onChangeDuty} style={styles.backBtn}>
+          {/* <TouchableOpacity onPress={onChangeDuty} style={styles.backBtn}>
             <MaterialCommunityIcons name="chevron-left" size={22} color={colors.text} />
             <Text style={[styles.backText, { color: colors.textSecondary }]}>Switch Duty</Text>
-          </TouchableOpacity>
+          </TouchableOpacity> */}
           <View style={styles.headerCenter}>
             <MaterialCommunityIcons name="account-check-outline" size={16} color="#10b981" />
             <Text style={[styles.headerTitle, { color: '#10b981' }]}>CHECK-IN DESK</Text>

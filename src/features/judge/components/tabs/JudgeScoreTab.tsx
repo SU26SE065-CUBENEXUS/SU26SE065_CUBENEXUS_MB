@@ -423,7 +423,7 @@ export default function JudgeScoreTab({
           {formatType === 'MEDLEY' && (
             <View style={{ backgroundColor: colors.accent + '15', borderColor: colors.accent + '30', borderWidth: 1, borderRadius: 8, padding: 8, marginBottom: 10 }}>
               <Text style={{ color: colors.accent, fontSize: 11, fontWeight: '700' }}>
-                ⚡ Hạng mục Medley: Chỉ nhập 1 TỔNG THỜI GIAN duy nhất cho toàn bộ các khối.
+                Hạng mục Medley: Chỉ nhập 1 TỔNG THỜI GIAN duy nhất cho toàn bộ các khối.
               </Text>
             </View>
           )}

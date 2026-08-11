@@ -776,7 +776,7 @@ export default function TournamentsScreen() {
                                       {/* Eliminated note */}
                                       {isLast && isCompleted && (
                                         <Text style={{ fontSize: 10, color: '#f59e0b', marginTop: 4, fontWeight: '600' }}>
-                                          ⚡ Kết thúc hành trình tại vòng này
+                                          Kết thúc hành trình tại vòng này
                                         </Text>
                                       )}
                                     </View>
