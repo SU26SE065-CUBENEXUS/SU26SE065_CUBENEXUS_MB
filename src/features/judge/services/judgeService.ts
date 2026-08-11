@@ -534,6 +534,7 @@ export function useCheckInDesk(token: string | null) {
   const [isScanning, setIsScanning] = useState(false);
   const [lastResult, setLastResult] = useState<{
     success: boolean;
+    isAlreadyCheckedIn?: boolean;
     message: string;
     record?: CheckInRecord;
   } | null>(null);
@@ -570,6 +571,7 @@ export function useCheckInDesk(token: string | null) {
       setRecentHistory([...getLocalCheckInHistory()]);
       setLastResult({
         success: true,
+        isAlreadyCheckedIn: res.alreadyCheckedIn,
         message: res.alreadyCheckedIn
           ? `${res.playerName || 'Competitor'} was already checked in.`
           : res.message || 'Check-in successful.',
