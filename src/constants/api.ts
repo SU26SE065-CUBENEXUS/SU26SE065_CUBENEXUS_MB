@@ -172,6 +172,10 @@ export async function getTournamentById(id: string): Promise<any> {
   return apiFetch<any>(`/api/tournaments/${id}`);
 }
 
+export async function getTournamentCheckInRoster(tournamentId: string, token: string): Promise<any[]> {
+  return apiFetch<any[]>(`/api/tournament-operation/judge/check-in-roster?tournamentId=${tournamentId}`, token);
+}
+
 // ---------- Operation Endpoints ----------
 export async function verifyJudgeStation(dto: VerifyJudgeStationByStationDto, token: string): Promise<VerifyJudgeStationResponseDto> {
   return apiFetch<VerifyJudgeStationResponseDto>('/api/tournament-operation/judge/verify-by-station', token, {

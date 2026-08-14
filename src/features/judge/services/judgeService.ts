@@ -8,6 +8,7 @@ import {
   getPublicTournaments,
   getSolveProgress,
   getTournamentById,
+  getTournamentCheckInRoster,
   submitMedleyResult,
   submitTraditionalResult,
   verifyJudgeStation,
@@ -539,6 +540,63 @@ export function useCheckInDesk(token: string | null) {
   } | null>(null);
   const [recentHistory, setRecentHistory] = useState<CheckInRecord[]>(getLocalCheckInHistory());
 
+  // Full roster of registered competitors for the tournament
+  const [allRegistrations, setAllRegistrations] = useState<{ registrationId: string; competitorName: string; statusCode: string }[]>([]);
+  const [checkedInIds, setCheckedInIds] = useState<Set<string>>(new Set());
+  const [isLoadingRoster, setIsLoadingRoster] = useState(false);
+
+  // Parse tournament_id from JWT token
+  const tournamentId: string | null = (() => {
+    if (!token) return null;
+    try {
+      const parts = token.split('.');
+      if (parts.length < 2) return null;
+      const base64Url = parts[1];
+      const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+      const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/=';
+      let str = base64.replace(/=+$/, '');
+      let output = '';
+      for (let bc = 0, bs = 0, rbuffer: any, idx = 0;
+        (rbuffer = str.charAt(idx++));
+        ~rbuffer && ((bs = bc % 4 ? bs * 64 + rbuffer : rbuffer), bc++ % 4)
+          ? (output += String.fromCharCode(255 & (bs >> ((-2 * bc) & 6))))
+          : 0
+      ) { rbuffer = chars.indexOf(rbuffer); }
+      const payload = JSON.parse(decodeURIComponent(output.split('').map(c => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2)).join('')));
+      return payload.tournament_id || null;
+    } catch { return null; }
+  })();
+
+  const loadRegistrations = useCallback(async () => {
+    if (!token || !tournamentId) return;
+    setIsLoadingRoster(true);
+    try {
+      const regs = await getTournamentCheckInRoster(tournamentId, token);
+      // Response shape: { registrationId, competitorName, statusCode, isCheckedIn }
+      const eligible = regs.map((r: any) => ({
+        registrationId: r.registrationId,
+        competitorName: r.competitorName || '-',
+        statusCode: r.statusCode,
+      }));
+      setAllRegistrations(eligible);
+      // Mark already checked-in from server data
+      const checkedIn = new Set<string>(
+        regs.filter((r: any) => r.isCheckedIn).map((r: any) => r.registrationId)
+      );
+      // Also merge local session history
+      getLocalCheckInHistory().forEach(h => checkedIn.add(h.registrationId));
+      setCheckedInIds(checkedIn);
+    } catch (err) {
+      console.error('[CheckInDesk] Failed to load registrations:', err);
+    } finally {
+      setIsLoadingRoster(false);
+    }
+  }, [token, tournamentId]);
+
+  useEffect(() => {
+    loadRegistrations();
+  }, [loadRegistrations]);
+
   const performCheckIn = async (rawScannedData: string): Promise<void> => {
     if (!token) {
       setLastResult({ success: false, message: 'Authorization required. Please log in again.' });
@@ -568,6 +626,8 @@ export function useCheckInDesk(token: string | null) {
       };
       addCheckInRecord(record);
       setRecentHistory([...getLocalCheckInHistory()]);
+      // Update checkedInIds immediately in UI
+      setCheckedInIds(prev => new Set([...prev, res.registrationId]));
       setLastResult({
         success: true,
         message: res.alreadyCheckedIn
@@ -586,8 +646,12 @@ export function useCheckInDesk(token: string | null) {
     isScanning,
     lastResult,
     recentHistory,
+    allRegistrations,
+    checkedInIds,
+    isLoadingRoster,
     performCheckIn,
     clearResult: () => setLastResult(null),
+    refreshRegistrations: loadRegistrations,
   };
 }
 

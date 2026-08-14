@@ -1,8 +1,7 @@
 import React, { useState } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, StatusBar } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { Colors } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { useCheckInDesk } from '../services/judgeService';
 import CheckInScanTab from './checkin/CheckInScanTab';
@@ -19,11 +18,20 @@ interface Props {
 export default function CheckInDeskMode({ token, onChangeDuty, onLogout }: Props) {
   const colors = useTheme();
   const [activeTab, setActiveTab] = useState<CheckInTab>('scan');
-  const { isScanning, lastResult, recentHistory, performCheckIn, clearResult } = useCheckInDesk(token);
+  const {
+    isScanning,
+    lastResult,
+    allRegistrations,
+    checkedInIds,
+    isLoadingRoster,
+    performCheckIn,
+    clearResult,
+    refreshRegistrations,
+  } = useCheckInDesk(token);
 
   const tabs: { key: CheckInTab; label: string; icon: string }[] = [
     { key: 'scan', label: 'Scan', icon: 'qrcode-scan' },
-    { key: 'recent', label: 'Recent', icon: 'history' },
+    { key: 'recent', label: 'Danh Sách', icon: 'account-group-outline' },
   ];
 
   return (
@@ -31,10 +39,6 @@ export default function CheckInDeskMode({ token, onChangeDuty, onLogout }: Props
       <SafeAreaView style={styles.safe} edges={['top']}>
         {/* Header */}
         <View style={[styles.header, { borderBottomColor: colors.border }]}>
-          <TouchableOpacity onPress={onChangeDuty} style={styles.backBtn}>
-            <MaterialCommunityIcons name="chevron-left" size={22} color={colors.text} />
-            <Text style={[styles.backText, { color: colors.textSecondary }]}>Switch Duty</Text>
-          </TouchableOpacity>
           <View style={styles.headerCenter}>
             <MaterialCommunityIcons name="account-check-outline" size={16} color="#10b981" />
             <Text style={[styles.headerTitle, { color: '#10b981' }]}>CHECK-IN DESK</Text>
@@ -48,7 +52,7 @@ export default function CheckInDeskMode({ token, onChangeDuty, onLogout }: Props
         <View style={[styles.tabBar, { backgroundColor: colors.backgroundElement, borderBottomColor: colors.border }]}>
           {tabs.map(tab => {
             const isActive = activeTab === tab.key;
-            const badge = tab.key === 'recent' && recentHistory.length > 0 ? recentHistory.length : null;
+            const badge = tab.key === 'recent' && checkedInIds.size > 0 ? checkedInIds.size : null;
             return (
               <TouchableOpacity
                 key={tab.key}
@@ -83,7 +87,12 @@ export default function CheckInDeskMode({ token, onChangeDuty, onLogout }: Props
               onClearResult={clearResult}
             />
           ) : (
-            <CheckInRecentTab history={recentHistory} />
+            <CheckInRecentTab
+              allRegistrations={allRegistrations}
+              checkedInIds={checkedInIds}
+              isLoadingRoster={isLoadingRoster}
+              onRefresh={refreshRegistrations}
+            />
           )}
         </View>
       </SafeAreaView>
@@ -102,11 +111,9 @@ const styles = StyleSheet.create({
     height: 52,
     borderBottomWidth: 1,
   },
-  backBtn: { flexDirection: 'row', alignItems: 'center', gap: 2, minWidth: 90 },
-  backText: { fontSize: 11, fontWeight: '700' },
-  headerCenter: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  headerCenter: { flexDirection: 'row', alignItems: 'center', gap: 6, flex: 1, justifyContent: 'center' },
   headerTitle: { fontSize: 11, fontWeight: '900', letterSpacing: 0.6 },
-  logoutBtn: { width: 36, height: 36, justifyContent: 'center', alignItems: 'center', minWidth: 36 },
+  logoutBtn: { width: 36, height: 36, justifyContent: 'center', alignItems: 'center' },
   tabBar: {
     flexDirection: 'row',
     borderBottomWidth: 1,
