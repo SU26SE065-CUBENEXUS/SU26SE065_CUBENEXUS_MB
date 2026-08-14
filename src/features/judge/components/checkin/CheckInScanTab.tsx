@@ -11,7 +11,7 @@ import { CheckInRecord } from '../../types';
 
 interface Props {
   isScanning: boolean;
-  lastResult: { success: boolean; message: string; record?: CheckInRecord } | null;
+  lastResult: { success: boolean; isAlreadyCheckedIn?: boolean; message: string; record?: CheckInRecord } | null;
   onScan: (qrToken: string) => Promise<void>;
   onClearResult: () => void;
 }
@@ -242,44 +242,47 @@ export default function CheckInScanTab({ isScanning, lastResult, onScan, onClear
       </TouchableOpacity>
 
       {/* Result feedback */}
-      {lastResult && (
-        <View style={[
-          styles.resultBox,
-          {
-            backgroundColor: lastResult.success ? '#10b98112' : '#ef444412',
-            borderColor: lastResult.success ? '#10b98140' : '#ef444440',
-          }
-        ]}>
-          <View style={styles.resultRow}>
-            <MaterialCommunityIcons
-              name={lastResult.success ? 'check-circle' : 'alert-circle'}
-              size={20}
-              color={lastResult.success ? '#10b981' : '#ef4444'}
-            />
-            <View style={{ flex: 1 }}>
-              <Text style={[styles.resultTitle, { color: lastResult.success ? '#10b981' : '#ef4444' }]}>
-                {lastResult.success ? 'Điểm Danh Thành Công' : 'Điểm Danh Thất Bại'}
-              </Text>
-              <Text style={[styles.resultMessage, { color: colors.textSecondary }]}>
-                {lastResult.message}
-              </Text>
-              {lastResult.record && lastResult.record.competitorName !== '—' && (
-                <Text style={[styles.resultName, { color: colors.text }]}>
-                  {lastResult.record.competitorName}
+      {lastResult && (() => {
+        const isAlreadyChecked = lastResult.isAlreadyCheckedIn || lastResult.record?.statusCode === 'ALREADY_CHECKED_IN';
+        const boxBg = !lastResult.success ? '#ef444412' : isAlreadyChecked ? '#f59e0b14' : '#10b98112';
+        const boxBorder = !lastResult.success ? '#ef444440' : isAlreadyChecked ? '#f59e0b40' : '#10b98140';
+        const iconName = !lastResult.success ? 'alert-circle' : isAlreadyChecked ? 'alert-circle' : 'check-circle';
+        const iconColor = !lastResult.success ? '#ef4444' : isAlreadyChecked ? '#f59e0b' : '#10b981';
+        const titleText = !lastResult.success
+          ? 'Điểm Danh Thất Bại'
+          : isAlreadyChecked
+            ? 'Thí Sinh Đã Điểm Danh'
+            : 'Điểm Danh Thành Công';
+
+        return (
+          <View style={[styles.resultBox, { backgroundColor: boxBg, borderColor: boxBorder }]}>
+            <View style={styles.resultRow}>
+              <MaterialCommunityIcons name={iconName as any} size={20} color={iconColor} />
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.resultTitle, { color: iconColor }]}>
+                  {titleText}
                 </Text>
-              )}
-              {lastResult.record && (
-                <Text style={[styles.resultMeta, { color: colors.textSecondary }]}>
-                  {new Date(lastResult.record.checkedInAt).toLocaleTimeString()}
+                <Text style={[styles.resultMessage, { color: colors.textSecondary }]}>
+                  {lastResult.message}
                 </Text>
-              )}
+                {lastResult.record && lastResult.record.competitorName !== '—' && (
+                  <Text style={[styles.resultName, { color: colors.text }]}>
+                    {lastResult.record.competitorName}
+                  </Text>
+                )}
+                {lastResult.record && (
+                  <Text style={[styles.resultMeta, { color: colors.textSecondary }]}>
+                    {new Date(lastResult.record.checkedInAt).toLocaleTimeString()}
+                  </Text>
+                )}
+              </View>
+              <TouchableOpacity onPress={onClearResult} hitSlop={{ top: 8, right: 8, bottom: 8, left: 8 }}>
+                <MaterialCommunityIcons name="close" size={16} color={colors.textSecondary} />
+              </TouchableOpacity>
             </View>
-            <TouchableOpacity onPress={onClearResult} hitSlop={{ top: 8, right: 8, bottom: 8, left: 8 }}>
-              <MaterialCommunityIcons name="close" size={16} color={colors.textSecondary} />
-            </TouchableOpacity>
           </View>
-        </View>
-      )}
+        );
+      })()}
 
       {/* Scan hint */}
       <View style={[styles.hintBox, { backgroundColor: colors.backgroundElement, borderColor: colors.border }]}>
