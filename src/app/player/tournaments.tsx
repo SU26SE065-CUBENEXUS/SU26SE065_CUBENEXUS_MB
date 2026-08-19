@@ -212,7 +212,7 @@ export default function TournamentsScreen() {
   };
 
   const isTourOpenForRegistration = (tour: TournamentDetailDto) => {
-    return tour.statusCode === 'PUBLISHED' && isRegistrationTimelineOpen(tour);
+    return (tour.statusCode === 'PUBLISHED' || tour.statusCode === 'REGISTRATION_OPEN') && isRegistrationTimelineOpen(tour);
   };
 
   // Group listings

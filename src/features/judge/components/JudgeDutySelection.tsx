@@ -41,6 +41,19 @@ export default function JudgeDutySelection({ onSelectDuty, onLogout }: Props) {
 
         {/* Content */}
         <View style={styles.content}>
+          {/* Tournament Banner Card */}
+          <View style={[styles.tournamentCard, { backgroundColor: colors.primary + '12', borderColor: colors.primary + '35' }]}>
+            <View style={[styles.tournamentIconWrap, { backgroundColor: colors.primary + '20' }]}>
+              <MaterialCommunityIcons name="trophy-award" size={22} color={colors.primary} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={[styles.tournamentLabel, { color: colors.primary }]}>GIẢI ĐẤU ĐƯỢC PHÂN CÔNG</Text>
+              <Text style={[styles.tournamentName, { color: colors.text }]} numberOfLines={1}>
+                {user?.assignedTournamentName || 'Chưa chọn giải đấu'}
+              </Text>
+            </View>
+          </View>
+
           <Text style={[styles.title, { color: colors.text }]}>Chọn Nhiệm Vụ Trọng Tài</Text>
           <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
             Xin chào {user?.displayName || 'Trọng tài'}! Nhiệm vụ chính: <Text style={{ color: colors.primary, fontWeight: '800' }}>{user?.judgeRoleCode === 'CHECKIN_JUDGE' ? 'Trọng tài Check-in' : user?.judgeRoleCode === 'STATION_JUDGE' ? 'Trọng tài Bàn thi' : (user?.role || 'JUDGE')}</Text>.
@@ -117,8 +130,34 @@ const styles = StyleSheet.create({
   content: {
     flex: 1,
     paddingHorizontal: 20,
-    paddingTop: 36,
+    paddingTop: 24,
     gap: 14,
+  },
+  tournamentCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderRadius: 14,
+    borderWidth: 1,
+    padding: 12,
+    gap: 10,
+    marginBottom: 4,
+  },
+  tournamentIconWrap: {
+    width: 38,
+    height: 38,
+    borderRadius: 10,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  tournamentLabel: {
+    fontSize: 9,
+    fontWeight: '900',
+    letterSpacing: 0.5,
+    marginBottom: 2,
+  },
+  tournamentName: {
+    fontSize: 14,
+    fontWeight: '800',
   },
   title: { fontSize: 22, fontWeight: '900', letterSpacing: -0.5, marginBottom: 2 },
   subtitle: { fontSize: 12, lineHeight: 17, marginBottom: 8 },

@@ -58,9 +58,9 @@ export default function PlayerHome() {
     loadData();
   }, [loadData]);
 
-  // Find the active tournament registration: tournament is PUBLISHED or ONGOING (not yet completed)
+  // Find the active tournament registration: tournament is PUBLISHED, REGISTRATION_CLOSED, CHECKING_IN or ONGOING (not yet completed)
   const activeTournament = registrations.find(
-    (reg) => reg.tournamentStatusCode === 'ONGOING' || reg.tournamentStatusCode === 'PUBLISHED'
+    (reg) => reg.tournamentStatusCode === 'ONGOING' || reg.tournamentStatusCode === 'PUBLISHED' || reg.tournamentStatusCode === 'CHECKING_IN' || reg.tournamentStatusCode === 'REGISTRATION_CLOSED'
   );
 
   // Find first active published event assignment
@@ -192,13 +192,18 @@ export default function PlayerHome() {
                 </View>
                 {/* Show tournament lifecycle status */}
                 <View style={[styles.statusIndicator, {
-                  backgroundColor: activeTournament.tournamentStatusCode === 'ONGOING' ? colors.success + '15' : colors.primary + '15',
-                  borderColor: activeTournament.tournamentStatusCode === 'ONGOING' ? colors.success + '30' : colors.primary + '30',
+                  backgroundColor: activeTournament.tournamentStatusCode === 'ONGOING' ? colors.success + '15' :
+                    activeTournament.tournamentStatusCode === 'CHECKING_IN' ? '#a855f715' : colors.primary + '15',
+                  borderColor: activeTournament.tournamentStatusCode === 'ONGOING' ? colors.success + '30' :
+                    activeTournament.tournamentStatusCode === 'CHECKING_IN' ? '#a855f730' : colors.primary + '30',
                 }]}>
                   <Text style={[styles.statusIndicatorText, {
-                    color: activeTournament.tournamentStatusCode === 'ONGOING' ? colors.success : colors.primary,
+                    color: activeTournament.tournamentStatusCode === 'ONGOING' ? colors.success :
+                      activeTournament.tournamentStatusCode === 'CHECKING_IN' ? '#a855f7' : colors.primary,
                   }]}>
-                    {activeTournament.tournamentStatusCode === 'ONGOING' ? '● ONGOING' : activeTournament.tournamentStatusCode}
+                    {activeTournament.tournamentStatusCode === 'ONGOING' ? '● ONGOING' :
+                     activeTournament.tournamentStatusCode === 'CHECKING_IN' ? '● CHECKING IN' :
+                     activeTournament.tournamentStatusCode}
                   </Text>
                 </View>
               </View>

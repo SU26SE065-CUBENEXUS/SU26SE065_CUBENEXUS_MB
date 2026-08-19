@@ -1,4 +1,4 @@
-export type TournamentStatus = 'DRAFT' | 'PUBLISHED' | 'REGISTRATION_OPEN' | 'ONGOING' | 'COMPLETED';
+export type TournamentStatus = 'DRAFT' | 'PUBLISHED' | 'REGISTRATION_OPEN' | 'REGISTRATION_CLOSED' | 'CHECKING_IN' | 'ONGOING' | 'COMPLETED';
 
 export type RegistrationStatus = 'PENDING' | 'CONFIRMED' | 'CANCELLED' | 'CHECKED_IN';
 

@@ -3,6 +3,7 @@ import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTheme } from '@/hooks/use-theme';
+import { useAuth } from '@/contexts/AuthContext';
 import { useCheckInDesk } from '../services/judgeService';
 import CheckInScanTab from './checkin/CheckInScanTab';
 import CheckInRecentTab from './checkin/CheckInRecentTab';
@@ -17,6 +18,7 @@ interface Props {
 
 export default function CheckInDeskMode({ token, onChangeDuty, onLogout }: Props) {
   const colors = useTheme();
+  const { user } = useAuth();
   const [activeTab, setActiveTab] = useState<CheckInTab>('scan');
   const {
     isScanning,
@@ -39,9 +41,17 @@ export default function CheckInDeskMode({ token, onChangeDuty, onLogout }: Props
       <SafeAreaView style={styles.safe} edges={['top']}>
         {/* Header */}
         <View style={[styles.header, { borderBottomColor: colors.border }]}>
+          <TouchableOpacity onPress={onChangeDuty} style={styles.backBtn}>
+            <MaterialCommunityIcons name="arrow-left" size={18} color={colors.text} />
+          </TouchableOpacity>
           <View style={styles.headerCenter}>
             <MaterialCommunityIcons name="account-check-outline" size={16} color="#10b981" />
             <Text style={[styles.headerTitle, { color: '#10b981' }]}>CHECK-IN DESK</Text>
+            {user?.assignedTournamentName ? (
+              <Text style={[styles.tournamentTag, { color: colors.textSecondary }]} numberOfLines={1}>
+                · {user.assignedTournamentName}
+              </Text>
+            ) : null}
           </View>
           <TouchableOpacity onPress={onLogout} style={styles.logoutBtn}>
             <MaterialCommunityIcons name="logout" size={18} color={colors.textSecondary} />
@@ -113,6 +123,8 @@ const styles = StyleSheet.create({
   },
   headerCenter: { flexDirection: 'row', alignItems: 'center', gap: 6, flex: 1, justifyContent: 'center' },
   headerTitle: { fontSize: 11, fontWeight: '900', letterSpacing: 0.6 },
+  tournamentTag: { fontSize: 10, fontWeight: '700', maxWidth: 120 },
+  backBtn: { width: 36, height: 36, justifyContent: 'center', alignItems: 'center' },
   logoutBtn: { width: 36, height: 36, justifyContent: 'center', alignItems: 'center' },
   tabBar: {
     flexDirection: 'row',

@@ -14,6 +14,7 @@ export interface AuthUser {
   judgeRoleCode?: string | null;
   assignedStationNumber?: number | null;
   assignedTournamentId?: string | null;
+  assignedTournamentName?: string | null;
 }
 
 interface AuthContextValue {
@@ -94,8 +95,9 @@ function buildUserFromToken(token: string): AuthUser | null {
   const judgeRoleCode = (payload['judge_role'] as string) || null;
   const assignedStationNumber = payload['station_number'] ? parseInt(String(payload['station_number']), 10) : null;
   const assignedTournamentId = (payload['tournament_id'] as string) || null;
+  const assignedTournamentName = (payload['tournament_name'] as string) || null;
 
-  return { id, email, displayName, role, judgeRoleCode, assignedStationNumber, assignedTournamentId };
+  return { id, email, displayName, role, judgeRoleCode, assignedStationNumber, assignedTournamentId, assignedTournamentName };
 }
 
 // ---------- Cross-Platform Persistent Storage Engine ----------
@@ -189,6 +191,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const parsedUser = buildUserFromToken(token);
     if (!parsedUser) {
       throw new Error('Failed to parse user profile from JWT token.');
+    }
+
+    if (data.assignedTournamentName && !parsedUser.assignedTournamentName) {
+      parsedUser.assignedTournamentName = data.assignedTournamentName;
     }
 
     // Role Guarding - Only COMPETITOR and JUDGE (including related manager/admin roles)
