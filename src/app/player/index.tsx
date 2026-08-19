@@ -11,6 +11,7 @@ import {
   Modal,
   Platform,
   useColorScheme,
+  RefreshControl,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -30,6 +31,7 @@ export default function PlayerHome() {
 
   const [registrations, setRegistrations] = useState<RegistrationDto[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const [showQrModal, setShowQrModal] = useState(false);
 
   const getInitials = (name: string) => {
@@ -54,13 +56,32 @@ export default function PlayerHome() {
     }
   }, [accessToken]);
 
+  const onRefresh = useCallback(async () => {
+    if (!accessToken) return;
+    setIsRefreshing(true);
+    try {
+      const data = await fetchCompetitorRegistrations(accessToken);
+      setRegistrations(data);
+    } catch (err) {
+      console.warn('Failed refreshing home data:', err);
+    } finally {
+      setIsRefreshing(false);
+    }
+  }, [accessToken]);
+
   useEffect(() => {
     loadData();
   }, [loadData]);
 
+<<<<<<< HEAD
   // Find the active tournament registration: tournament is PUBLISHED, REGISTRATION_CLOSED, CHECKING_IN or ONGOING (not yet completed)
   const activeTournament = registrations.find(
     (reg) => reg.tournamentStatusCode === 'ONGOING' || reg.tournamentStatusCode === 'PUBLISHED' || reg.tournamentStatusCode === 'CHECKING_IN' || reg.tournamentStatusCode === 'REGISTRATION_CLOSED'
+=======
+  // Find the active tournament registration (not yet completed)
+  const activeTournament = registrations.find(
+    (reg) => reg.tournamentStatusCode && reg.tournamentStatusCode !== 'COMPLETED' && reg.statusCode !== 'CANCELLED'
+>>>>>>> 7f58b7f90779e8bb0c10c2799511b6fd3b4de888
   );
 
   // Find first active published event assignment
@@ -124,7 +145,18 @@ export default function PlayerHome() {
           </View>
         </View>
 
-        <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+        <ScrollView
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
+          refreshControl={
+            <RefreshControl
+              refreshing={isRefreshing}
+              onRefresh={onRefresh}
+              colors={[colors.primary]}
+              tintColor={colors.primary}
+            />
+          }
+        >
           
           {/* Greeting */}
           <View style={styles.welcomeSection}>

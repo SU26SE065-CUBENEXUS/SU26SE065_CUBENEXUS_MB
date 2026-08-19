@@ -657,6 +657,15 @@ export function useCheckInDesk(token: string | null) {
   };
 }
 
+function serializeDrawingPointsToSvg(points: Array<{ x: number; y: number }>, width = 340, height = 120): string {
+  if (!points || points.length === 0) return '';
+  const pathData = points
+    .map((p, idx) => `${idx === 0 ? 'M' : 'L'} ${p.x.toFixed(1)} ${p.y.toFixed(1)}`)
+    .join(' ');
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${width} ${height}" width="${width}" height="${height}"><path d="${pathData}" fill="none" stroke="#2563eb" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+  return `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`;
+}
+
 export function useJudgeScoring(
   groupCompetitorId: string,
   token: string | null,
@@ -768,7 +777,12 @@ export function useJudgeScoring(
 
     setIsSubmitting(true);
     try {
-      const esignature = signName.trim() || `SIGN_${drawingPoints.length}_POINTS`;
+      let esignature = '';
+      if (drawingPoints.length > 0) {
+        esignature = serializeDrawingPointsToSvg(drawingPoints);
+      } else if (signName.trim()) {
+        esignature = signName.trim();
+      }
       const competitor = getStationQueue().find(item => item.groupCompetitorId === groupCompetitorId);
       const laneConfig = getLaneConfig();
 
