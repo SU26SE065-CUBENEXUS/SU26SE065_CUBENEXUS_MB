@@ -212,13 +212,99 @@ export default function TournamentsScreen() {
   };
 
   const isTourOpenForRegistration = (tour: TournamentDetailDto) => {
-    return tour.statusCode === 'PUBLISHED' && isRegistrationTimelineOpen(tour);
+    const code = (tour.statusCode || '').toUpperCase();
+    return code === 'REGISTRATION_OPEN' || (code === 'PUBLISHED' && isRegistrationTimelineOpen(tour));
+  };
+
+  const getTournamentStatusInfo = (tour: TournamentDetailDto) => {
+    const code = (tour.statusCode || '').toUpperCase();
+    const now = new Date();
+    const openAt = tour.registrationOpenAt ? new Date(tour.registrationOpenAt) : null;
+    const closeAt = tour.registrationCloseAt ? new Date(tour.registrationCloseAt) : null;
+    const isTimelineOpen = openAt && closeAt && now >= openAt && now <= closeAt;
+    const isUpcomingReg = openAt && now < openAt;
+    const isPastReg = closeAt && now > closeAt;
+
+    if (code === 'REGISTRATION_OPEN' || (code === 'PUBLISHED' && isTimelineOpen)) {
+      return {
+        label: 'Đang Mở Đăng Ký',
+        badgeColor: '#10b981',
+        bgColor: '#10b98118',
+        borderColor: '#10b98140',
+        isOpen: true,
+        code: 'REGISTRATION_OPEN',
+      };
+    }
+
+    if (code === 'PUBLISHED') {
+      return {
+        label: isUpcomingReg ? 'Đã Công Bố (Sắp Mở)' : (isPastReg ? 'Đã Đóng Đăng Ký' : 'Đã Công Bố'),
+        badgeColor: isUpcomingReg ? '#0284c7' : '#f59e0b',
+        bgColor: isUpcomingReg ? '#0284c718' : '#f59e0b18',
+        borderColor: isUpcomingReg ? '#0284c740' : '#f59e0b40',
+        isOpen: false,
+        code: 'PUBLISHED',
+      };
+    }
+
+    if (code === 'REGISTRATION_CLOSED') {
+      return {
+        label: 'Đã Đóng Đăng Ký',
+        badgeColor: '#f59e0b',
+        bgColor: '#f59e0b18',
+        borderColor: '#f59e0b40',
+        isOpen: false,
+        code: 'REGISTRATION_CLOSED',
+      };
+    }
+
+    if (code === 'CHECKING_IN') {
+      return {
+        label: 'Đang Check-in',
+        badgeColor: '#8b5cf6',
+        bgColor: '#8b5cf618',
+        borderColor: '#8b5cf640',
+        isOpen: false,
+        code: 'CHECKING_IN',
+      };
+    }
+
+    if (code === 'ONGOING') {
+      return {
+        label: 'Đang Diễn Ra',
+        badgeColor: '#8b5cf6',
+        bgColor: '#8b5cf618',
+        borderColor: '#8b5cf640',
+        isOpen: false,
+        code: 'ONGOING',
+      };
+    }
+
+    if (code === 'COMPLETED') {
+      return {
+        label: 'Đã Kết Thúc',
+        badgeColor: '#6b7280',
+        bgColor: '#6b728018',
+        borderColor: '#6b728040',
+        isOpen: false,
+        code: 'COMPLETED',
+      };
+    }
+
+    return {
+      label: code || 'Chưa Xác Định',
+      badgeColor: colors.textSecondary,
+      bgColor: colors.border,
+      borderColor: colors.border,
+      isOpen: false,
+      code,
+    };
   };
 
   // Group listings
-  // A tournament is open for registration if its status code is PUBLISHED and registration timeline is open
+  // All public tournaments that are not completed (including PUBLISHED and REGISTRATION_OPEN)
   const openTournamentsFiltered = publicTournaments.filter(
-    (t) => isTourOpenForRegistration(t) && !getRegistrationForTournament(t.id)
+    (t) => t.statusCode !== 'COMPLETED' && !getRegistrationForTournament(t.id)
   );
 
   // My registrations segment shows active registrations
@@ -292,7 +378,7 @@ export default function TournamentsScreen() {
             onPress={() => setActiveSegment('OPEN_TOURS')}
           >
             <Text style={[styles.tabLabel, { color: activeSegment === 'OPEN_TOURS' ? colors.primary : colors.textSecondary }]}>
-              Open Tournaments
+              Offline Tournaments
             </Text>
           </TouchableOpacity>
 
@@ -399,15 +485,15 @@ export default function TournamentsScreen() {
                 </View>
               )}
 
-              {/* SEGMENT 2: OPEN TOURNAMENTS */}
+              {/* SEGMENT 2: OFFLINE TOURNAMENTS (OPEN & PUBLISHED) */}
               {activeSegment === 'OPEN_TOURS' && (
                 <View style={styles.section}>
                   {openTournamentsFiltered.length === 0 ? (
                     <View style={styles.emptyContainer}>
                       <MaterialCommunityIcons name="calendar-remove-outline" size={60} color={colors.border} />
-                      <Text style={[styles.emptyText, { color: colors.text }]}>Không có giải đấu đang mở</Text>
+                      <Text style={[styles.emptyText, { color: colors.text }]}>Không có giải đấu khả dụng</Text>
                       <Text style={[styles.emptySubText, { color: colors.textSecondary }]}>
-                        Hiện tại chưa có giải đấu nào đang nhận đăng ký. Vui lòng quay lại sau!
+                        Hiện tại chưa có giải đấu nào được công bố hoặc mở đăng ký. Vui lòng quay lại sau!
                       </Text>
                     </View>
                   ) : (
@@ -415,6 +501,8 @@ export default function TournamentsScreen() {
                       const maxCap = tour.maxParticipants || 40;
                       const regCount = tour.currentParticipants ?? 0;
                       const fillPct = maxCap > 0 ? Math.min(100, Math.round((regCount / maxCap) * 100)) : 0;
+                      const statusInfo = getTournamentStatusInfo(tour);
+                      const canRegister = isTourOpenForRegistration(tour);
 
                       return (
                         <View
@@ -443,9 +531,9 @@ export default function TournamentsScreen() {
                                 {tour.name}
                               </Text>
                             </View>
-                            <View style={[styles.statusBadge, { borderColor: colors.success + '30', backgroundColor: colors.success + '12' }]}>
-                              <Text style={[styles.statusBadgeText, { color: colors.success }]}>
-                                {tour.statusCode}
+                            <View style={[styles.statusBadge, { borderColor: statusInfo.borderColor, backgroundColor: statusInfo.bgColor }]}>
+                              <Text style={[styles.statusBadgeText, { color: statusInfo.badgeColor, fontWeight: '700' }]}>
+                                {statusInfo.label}
                               </Text>
                             </View>
                           </View>
@@ -479,12 +567,25 @@ export default function TournamentsScreen() {
 
                           <View style={[styles.actionsRow, { borderTopColor: colors.border }]}>
                             <TouchableOpacity
-                              style={[styles.actionBtn, styles.solidBtn, { backgroundColor: colors.primary, flex: 1 }]}
+                              style={[
+                                styles.actionBtn,
+                                styles.solidBtn,
+                                {
+                                  backgroundColor: canRegister ? colors.primary : colors.backgroundSelected,
+                                  borderWidth: canRegister ? 0 : 1,
+                                  borderColor: colors.border,
+                                  flex: 1,
+                                }
+                              ]}
                               onPress={() => handleOpenDetail(tour.id)}
                             >
-                              <MaterialCommunityIcons name="clipboard-text-play-outline" size={16} color="#fff" />
-                              <Text style={[styles.actionBtnText, { color: '#fff' }]}>
-                                Xem Chi Tiết & Đăng Ký
+                              <MaterialCommunityIcons
+                                name={canRegister ? "clipboard-text-play-outline" : "eye-outline"}
+                                size={16}
+                                color={canRegister ? "#fff" : colors.text}
+                              />
+                              <Text style={[styles.actionBtnText, { color: canRegister ? '#fff' : colors.text }]}>
+                                {canRegister ? "Xem Chi Tiết & Đăng Ký" : "Xem Chi Tiết Giải Đấu"}
                               </Text>
                             </TouchableOpacity>
                           </View>
@@ -833,11 +934,16 @@ export default function TournamentsScreen() {
                           {selectedTour.name}
                         </Text>
                       </View>
-                      <View style={[styles.statusBadge, { borderColor: getRegStatusColor(getRegStatusLabel(selectedTour.id)) + '30', backgroundColor: getRegStatusColor(getRegStatusLabel(selectedTour.id)) + '12' }]}>
-                        <Text style={[styles.statusBadgeText, { color: getRegStatusColor(getRegStatusLabel(selectedTour.id)) }]}>
-                          {getRegStatusLabel(selectedTour.id)}
-                        </Text>
-                      </View>
+                      {(() => {
+                        const statusInfo = getTournamentStatusInfo(selectedTour);
+                        return (
+                          <View style={[styles.statusBadge, { borderColor: statusInfo.borderColor, backgroundColor: statusInfo.bgColor }]}>
+                            <Text style={[styles.statusBadgeText, { color: statusInfo.badgeColor, fontWeight: '700' }]}>
+                              {statusInfo.label}
+                            </Text>
+                          </View>
+                        );
+                      })()}
                     </View>
 
                     <View style={styles.detailMetaRow}>
@@ -927,9 +1033,9 @@ export default function TournamentsScreen() {
                     {getRegistrationForTournament(selectedTour.id) ? (
                       <View style={[styles.submitRegisterBtn, { backgroundColor: colors.backgroundSelected, borderWidth: 1, borderColor: colors.border }]}>
                         <MaterialCommunityIcons name="check-decagram" size={18} color={colors.success} />
-                        <Text style={[styles.submitRegisterBtnText, { color: colors.text }]}>Already Registered</Text>
+                        <Text style={[styles.submitRegisterBtnText, { color: colors.text }]}>Bạn Đã Đăng Ký Giải Này</Text>
                       </View>
-                    ) : isRegistrationTimelineOpen(selectedTour) ? (
+                    ) : isTourOpenForRegistration(selectedTour) ? (
                       <TouchableOpacity
                         style={[styles.submitRegisterBtn, { backgroundColor: colors.primary }]}
                         onPress={handleRegisterSubmit}
@@ -940,7 +1046,7 @@ export default function TournamentsScreen() {
                         ) : (
                           <>
                             <MaterialCommunityIcons name="check-bold" size={18} color="#fff" />
-                            <Text style={styles.submitRegisterBtnText}>Confirm Registration</Text>
+                            <Text style={styles.submitRegisterBtnText}>Xác Nhận Đăng Ký</Text>
                           </>
                         )}
                       </TouchableOpacity>
@@ -948,7 +1054,14 @@ export default function TournamentsScreen() {
                       <View style={[styles.submitRegisterBtn, { backgroundColor: colors.border }]}>
                         <MaterialCommunityIcons name="lock-outline" size={18} color={colors.textSecondary} />
                         <Text style={[styles.submitRegisterBtnText, { color: colors.textSecondary }]}>
-                          Registration Closed
+                          {(() => {
+                            const now = new Date();
+                            const openAt = selectedTour.registrationOpenAt ? new Date(selectedTour.registrationOpenAt) : null;
+                            if (openAt && now < openAt) {
+                              return 'Chưa Đến Giờ Mở Đăng Ký';
+                            }
+                            return 'Cổng Đăng Ký Đang Đóng';
+                          })()}
                         </Text>
                       </View>
                     )}
