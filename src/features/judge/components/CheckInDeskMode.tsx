@@ -7,6 +7,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useCheckInDesk } from '../services/judgeService';
 import CheckInScanTab from './checkin/CheckInScanTab';
 import CheckInRecentTab from './checkin/CheckInRecentTab';
+import FaceCheckInModal from '@/features/face-verification/FaceCheckInModal';
 
 type CheckInTab = 'scan' | 'recent';
 
@@ -25,7 +26,10 @@ export default function CheckInDeskMode({ token, onLogout }: Props) {
     allRegistrations,
     checkedInIds,
     isLoadingRoster,
+    pendingFace,
     performCheckIn,
+    completeCheckInAfterFace,
+    cancelFaceCheckIn,
     clearResult,
     refreshRegistrations,
   } = useCheckInDesk(token);
@@ -38,7 +42,6 @@ export default function CheckInDeskMode({ token, onLogout }: Props) {
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       <SafeAreaView style={styles.safe} edges={['top']}>
-        {/* Clean Top Header */}
         <View style={[styles.header, { borderBottomColor: colors.border }]}>
           <View style={styles.headerLeft}>
             <View style={styles.headerBadge}>
@@ -97,7 +100,6 @@ export default function CheckInDeskMode({ token, onLogout }: Props) {
           })}
         </View>
 
-        {/* Tab content */}
         <View style={{ flex: 1 }}>
           {activeTab === 'scan' ? (
             <CheckInScanTab
@@ -116,6 +118,16 @@ export default function CheckInDeskMode({ token, onLogout }: Props) {
           )}
         </View>
       </SafeAreaView>
+
+      {token && pendingFace ? (
+        <FaceCheckInModal
+          visible
+          token={token}
+          session={pendingFace.session}
+          onVerified={completeCheckInAfterFace}
+          onCancel={cancelFaceCheckIn}
+        />
+      ) : null}
     </View>
   );
 }
