@@ -4,12 +4,15 @@
   "version": "1.0.0",
   "private": true,
   "scripts": {
-    "start": "expo start",
-    "start:online": "expo start",
+    "start": "set BROWSER=none&& expo start --lan --port 8088",
+    "start:lan": "set BROWSER=none&& expo start --lan --port 8088",
+    "start:tunnel": "set BROWSER=none&& expo start --tunnel --port 8088",
+    "start:usb": "set BROWSER=none&& expo start --localhost --port 8088",
+    "start:online": "set BROWSER=none&& expo start --lan --port 8088",
     "reset-project": "node ./scripts/reset-project.js",
-    "android": "expo start --android --offline",
-    "ios": "expo start --ios --offline",
-    "web": "expo start --web --offline",
+    "android": "expo start --android --port 8088",
+    "ios": "expo start --ios --port 8088",
+    "web": "expo start --web --port 8081",
     "lint": "expo lint"
   },
   "dependencies": {

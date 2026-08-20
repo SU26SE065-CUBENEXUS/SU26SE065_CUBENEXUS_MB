@@ -9,9 +9,11 @@ import {
   getSolveProgress,
   getTournamentById,
   getTournamentCheckInRoster,
+  startCheckInFaceSession,
   submitMedleyResult,
   submitTraditionalResult,
   verifyJudgeStation,
+  type FaceSessionStartDto,
 } from '@/constants/api';
 import {
   CheckInRecord,
@@ -545,6 +547,7 @@ export function useCheckInDesk(token: string | null) {
   const [allRegistrations, setAllRegistrations] = useState<{ registrationId: string; competitorName: string; statusCode: string }[]>([]);
   const [checkedInIds, setCheckedInIds] = useState<Set<string>>(new Set());
   const [isLoadingRoster, setIsLoadingRoster] = useState(false);
+  const [pendingFace, setPendingFace] = useState<{ qrToken: string; session: FaceSessionStartDto } | null>(null);
 
   // Parse tournament_id from JWT token
   const tournamentId: string | null = (() => {
@@ -617,7 +620,34 @@ export function useCheckInDesk(token: string | null) {
     }
 
     try {
-      const res = await checkInRegistration(qrToken, token);
+      // Step 1: create face verification session for this QR / competitor
+      const faceSession = await startCheckInFaceSession(qrToken, token);
+      setPendingFace({ qrToken, session: faceSession });
+    } catch (err: any) {
+      const code = err?.errorCode;
+      const message =
+        code === 'FACE_NOT_ENROLLED'
+          ? (err.message || 'Thí sinh chưa đăng ký Face ID trên Profile. Judge không đăng ký giúp được.')
+          : (err.message || 'Không tạo được phiên xác minh khuôn mặt.');
+      setLastResult({
+        success: false,
+        message,
+      });
+      setIsScanning(false);
+    }
+  };
+
+  const completeCheckInAfterFace = async (faceVerificationSessionId: string): Promise<void> => {
+    if (!token || !pendingFace) {
+      setIsScanning(false);
+      return;
+    }
+
+    const { qrToken } = pendingFace;
+    setPendingFace(null);
+
+    try {
+      const res = await checkInRegistration(qrToken, token, faceVerificationSessionId);
       const record: CheckInRecord = {
         registrationId: res.registrationId,
         competitorName: res.playerName || '-',
@@ -627,7 +657,6 @@ export function useCheckInDesk(token: string | null) {
       };
       addCheckInRecord(record);
       setRecentHistory([...getLocalCheckInHistory()]);
-      // Update checkedInIds immediately in UI
       setCheckedInIds(prev => new Set([...prev, res.registrationId]));
       setLastResult({
         success: true,
@@ -644,6 +673,14 @@ export function useCheckInDesk(token: string | null) {
     }
   };
 
+  const cancelFaceCheckIn = (message?: string) => {
+    setPendingFace(null);
+    setIsScanning(false);
+    if (message) {
+      setLastResult({ success: false, message });
+    }
+  };
+
   return {
     isScanning,
     lastResult,
@@ -651,7 +688,10 @@ export function useCheckInDesk(token: string | null) {
     allRegistrations,
     checkedInIds,
     isLoadingRoster,
+    pendingFace,
     performCheckIn,
+    completeCheckInAfterFace,
+    cancelFaceCheckIn,
     clearResult: () => setLastResult(null),
     refreshRegistrations: loadRegistrations,
   };

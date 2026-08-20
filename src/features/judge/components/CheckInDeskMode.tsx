@@ -6,6 +6,7 @@ import { useTheme } from '@/hooks/use-theme';
 import { useCheckInDesk } from '../services/judgeService';
 import CheckInScanTab from './checkin/CheckInScanTab';
 import CheckInRecentTab from './checkin/CheckInRecentTab';
+import FaceCheckInModal from '@/features/face-verification/FaceCheckInModal';
 
 type CheckInTab = 'scan' | 'recent';
 
@@ -24,7 +25,10 @@ export default function CheckInDeskMode({ token, onChangeDuty, onLogout }: Props
     allRegistrations,
     checkedInIds,
     isLoadingRoster,
+    pendingFace,
     performCheckIn,
+    completeCheckInAfterFace,
+    cancelFaceCheckIn,
     clearResult,
     refreshRegistrations,
   } = useCheckInDesk(token);
@@ -37,7 +41,6 @@ export default function CheckInDeskMode({ token, onChangeDuty, onLogout }: Props
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       <SafeAreaView style={styles.safe} edges={['top']}>
-        {/* Header */}
         <View style={[styles.header, { borderBottomColor: colors.border }]}>
           <View style={styles.headerCenter}>
             <MaterialCommunityIcons name="account-check-outline" size={16} color="#10b981" />
@@ -48,7 +51,6 @@ export default function CheckInDeskMode({ token, onChangeDuty, onLogout }: Props
           </TouchableOpacity>
         </View>
 
-        {/* Tab Bar */}
         <View style={[styles.tabBar, { backgroundColor: colors.backgroundElement, borderBottomColor: colors.border }]}>
           {tabs.map(tab => {
             const isActive = activeTab === tab.key;
@@ -77,7 +79,6 @@ export default function CheckInDeskMode({ token, onChangeDuty, onLogout }: Props
           })}
         </View>
 
-        {/* Tab content */}
         <View style={{ flex: 1 }}>
           {activeTab === 'scan' ? (
             <CheckInScanTab
@@ -96,6 +97,16 @@ export default function CheckInDeskMode({ token, onChangeDuty, onLogout }: Props
           )}
         </View>
       </SafeAreaView>
+
+      {token && pendingFace ? (
+        <FaceCheckInModal
+          visible
+          token={token}
+          session={pendingFace.session}
+          onVerified={completeCheckInAfterFace}
+          onCancel={cancelFaceCheckIn}
+        />
+      ) : null}
     </View>
   );
 }
