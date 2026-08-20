@@ -197,7 +197,7 @@ export function useJudgeLaneConfig(token: string | null) {
   const [hubConnection, setHubConnection] = useState<signalR.HubConnection | null>(null);
   const [isHubConnected, setIsHubConnected] = useState(false);
   const [hubStatus, setHubStatus] = useState<'Disconnected' | 'Connecting' | 'Connected' | 'Failed'>('Disconnected');
-  const [statusMessage, setStatusMessage] = useState('Vui lòng chọn Vòng thi và bấm Kết Nối Vòng.');
+  const [statusMessage, setStatusMessage] = useState('Please select Round and click Connect.');
 
   const [laneConfigState, setLaneConfigState] = useState<JudgeLaneConfig | null>(getLaneConfig());
 
@@ -206,9 +206,16 @@ export function useJudgeLaneConfig(token: string | null) {
       setIsLoadingTournaments(true);
       try {
         const tournList = await getPublicTournaments();
-        setTournaments(tournList);
-        if (tournList.length > 0) {
-          setSelectedTournamentId(tournList[0].id);
+        const payload = token ? parseJwtClaims(token) : null;
+        const assignedId = payload?.tournament_id || payload?.TournamentId || payload?.tournamentId;
+        const filtered = assignedId
+          ? tournList.filter(t => t.id === assignedId)
+          : tournList;
+
+        const finalTournaments = filtered.length > 0 ? filtered : tournList;
+        setTournaments(finalTournaments);
+        if (finalTournaments.length > 0) {
+          setSelectedTournamentId(finalTournaments[0].id);
         }
       } catch (err) {
         console.error('Failed to load tournaments:', err);
@@ -217,7 +224,7 @@ export function useJudgeLaneConfig(token: string | null) {
       }
     }
     loadTournaments();
-  }, []);
+  }, [token]);
 
   useEffect(() => {
     if (!token) return;
@@ -287,13 +294,13 @@ export function useJudgeLaneConfig(token: string | null) {
       }
       setIsHubConnected(false);
       setHubStatus('Disconnected');
-      setStatusMessage('Thông tin vòng thi thay đổi. Vui lòng bấm Kết Nối lại.');
+      setStatusMessage('Round configuration changed. Please click Connect again.');
     }
   }, [selectedTournamentId, selectedEventId, roundNumber, groupNumber, stationNumber, hubConnection]);
 
   const loadStationRoster = useCallback(async (config: JudgeLaneConfig) => {
     if (!token) {
-      throw new Error('Yêu cầu đăng nhập lại.');
+      throw new Error('Authorization required. Please log in again.');
     }
     setIsLoadingRoster(true);
     try {
@@ -309,8 +316,8 @@ export function useJudgeLaneConfig(token: string | null) {
       setStationQueue(roster);
       setStatusMessage(
         roster.length > 0
-          ? `Đã kết nối thành công! Đã tải danh sách ${roster.length} đấu thủ tại Trạm ${config.stationNumber}.`
-          : `Đã kết nối thành công. Hiện chưa có đấu thủ thi đấu tại Trạm ${config.stationNumber}.`
+          ? `Connected successfully! Loaded ${roster.length} competitors for Station ${config.stationNumber}.`
+          : `Connected successfully. No competitors currently assigned for Station ${config.stationNumber}.`
       );
       return roster;
     } finally {
@@ -327,7 +334,7 @@ export function useJudgeLaneConfig(token: string | null) {
     }
 
     if (!selectedEventId || !roundNumber || !stationNumber) {
-      setStatusMessage('Chưa chọn đầy đủ thông tin Vòng thi.');
+      setStatusMessage('Please select all required Round information.');
       return;
     }
 
@@ -382,8 +389,8 @@ export function useJudgeLaneConfig(token: string | null) {
       const missingRosterApi = err?.status === 404 && String(err.message || '').includes('station-roster');
       setStatusMessage(
         missingRosterApi
-          ? 'Đã kết nối tín hiệu nhưng server chưa trả về danh sách thí sinh.'
-          : `Kết nối không thành công: ${err.message || err}`
+          ? 'Connected to SignalR hub, but server returned no competitor roster.'
+          : `Connection failed: ${err.message || err}`
       );
     }
   }, [
@@ -405,7 +412,7 @@ export function useJudgeLaneConfig(token: string | null) {
     }
     setIsHubConnected(false);
     setHubStatus('Disconnected');
-    setStatusMessage('Đã ngắt kết nối. Vui lòng chọn Vòng thi và bấm Kết Nối lại.');
+    setStatusMessage('Disconnected. Please select Round and click Connect again.');
     clearLaneConnection();
     setLaneConfigState(null);
   }, [hubConnection]);

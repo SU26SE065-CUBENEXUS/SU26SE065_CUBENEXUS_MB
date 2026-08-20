@@ -13,27 +13,27 @@ interface Props {
 
 function getDisplayState(competitor: JudgeStationCompetitor, colors: any): { label: string; color: string; background: string } {
   if (competitor.isCutoffReached) {
-    return { label: 'TRƯỢT CUTOFF', color: '#f97316', background: '#f9731612' };
+    return { label: 'CUTOFF REACHED', color: '#f97316', background: '#f9731612' };
   }
   if (competitor.sessionState === 'ISSUE') {
-    return { label: 'CÓ LỖI', color: '#ef4444', background: '#ef444412' };
+    return { label: 'ISSUE', color: '#ef4444', background: '#ef444412' };
   }
   if (competitor.sessionState === 'SCORING') {
-    return { label: 'ĐANG CHẤM', color: colors.primary, background: colors.primary + '15' };
+    return { label: 'SCORING', color: colors.primary, background: colors.primary + '15' };
   }
   if (competitor.sessionState === 'VERIFIED') {
-    return { label: 'ĐÃ XÁC NHẬN', color: '#f59e0b', background: '#f59e0b15' };
+    return { label: 'VERIFIED', color: '#f59e0b', background: '#f59e0b15' };
   }
   if (competitor.backendStatus === 'DONE') {
-    return { label: 'HOÀN THÀNH', color: '#10b981', background: '#10b98115' };
+    return { label: 'DONE', color: '#10b981', background: '#10b98115' };
   }
   if (competitor.backendStatus === 'PARTIAL') {
-    return { label: 'ĐANG THI', color: '#38bdf8', background: '#38bdf815' };
+    return { label: 'IN PROGRESS', color: '#38bdf8', background: '#38bdf815' };
   }
   if (competitor.backendStatus === 'ABSENT' || competitor.backendStatus === 'DNS') {
     return { label: competitor.backendStatus, color: '#ef4444', background: '#ef444415' };
   }
-  return { label: 'CHỜ QUÉT MÃ', color: colors.textSecondary, background: colors.backgroundSelected };
+  return { label: 'WAITING FOR SCAN', color: colors.textSecondary, background: colors.backgroundSelected };
 }
 
 export default function JudgeRosterTab({
@@ -47,9 +47,9 @@ export default function JudgeRosterTab({
     return (
       <View style={styles.emptyWrap}>
         <MaterialCommunityIcons name="account-group-outline" size={40} color={colors.border} />
-        <Text style={[styles.emptyTitle, { color: colors.textSecondary }]}>Chưa Có Danh Sách Thí Sinh</Text>
+        <Text style={[styles.emptyTitle, { color: colors.textSecondary }]}>No Competitor Roster</Text>
         <Text style={[styles.emptySub, { color: colors.textSecondary }]}>
-          Vui lòng sang tab Cấu Hình để kết nối Vòng thi. Danh sách đấu thủ sẽ tự động tải theo trạm được phân công.
+          Please go to Config tab to connect Station. Roster loads automatically for assigned Station.
         </Text>
       </View>
     );
@@ -60,7 +60,7 @@ export default function JudgeRosterTab({
       <View style={[styles.sessionNotice, { backgroundColor: colors.backgroundElement, borderColor: colors.border }]}>
         <MaterialCommunityIcons name="information-outline" size={11} color={colors.textSecondary} />
         <Text style={[styles.sessionNoticeText, { color: colors.textSecondary }]}>
-          Danh sách thi đấu chính thức | {queue.length} đấu thủ tại Trạm này
+          Official Competitor Roster | {queue.length} Competitors at this Station
         </Text>
       </View>
 
@@ -90,7 +90,7 @@ export default function JudgeRosterTab({
                   </Text>
                   {isSelected && (
                     <View style={[styles.selectedBadge, { backgroundColor: colors.primary + '20', borderColor: colors.primary + '40' }]}>
-                      <Text style={[styles.selectedBadgeText, { color: colors.primary }]}>ĐANG CHỌN</Text>
+                      <Text style={[styles.selectedBadgeText, { color: colors.primary }]}>SELECTED</Text>
                     </View>
                   )}
                 </View>
@@ -98,8 +98,8 @@ export default function JudgeRosterTab({
                   {item.groupName} | Station {item.stationNumber} | {item.solveProgress}
                 </Text>
                 <Text style={[styles.rosterTime, { color: colors.textSecondary }]}>
-                  Đã hoàn thành {item.submittedSolveCount}/{item.totalSolveCount} lượt thi
-                  {item.lastScannedAt ? ` | Quét lúc ${new Date(item.lastScannedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}` : ''}
+                  Completed {item.submittedSolveCount}/{item.totalSolveCount} solves
+                  {item.lastScannedAt ? ` | Scanned at ${new Date(item.lastScannedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}` : ''}
                 </Text>
               </View>
 
@@ -113,11 +113,11 @@ export default function JudgeRosterTab({
                     style={[styles.scoreBtn, { backgroundColor: colors.primary }]}
                     onPress={() => onSelectCompetitor(item)}
                   >
-                    <Text style={styles.scoreBtnText}>Chấm Điểm</Text>
+                    <Text style={styles.scoreBtnText}>Enter Score</Text>
                   </TouchableOpacity>
                 ) : (
                   <Text style={[styles.verifyHint, { color: colors.textSecondary }]}>
-                    {item.isCutoffReached ? 'Dừng thi (Cutoff)' : item.backendStatus === 'DONE' ? 'Đã Xong' : 'Quét QR xác nhận'}
+                    {item.isCutoffReached ? 'Cutoff Reached' : item.backendStatus === 'DONE' ? 'Done' : 'Scan QR First'}
                   </Text>
                 )}
               </View>

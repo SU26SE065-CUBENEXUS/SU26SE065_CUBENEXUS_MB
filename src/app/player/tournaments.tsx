@@ -212,9 +212,6 @@ export default function TournamentsScreen() {
   };
 
   const isTourOpenForRegistration = (tour: TournamentDetailDto) => {
-<<<<<<< HEAD
-    return (tour.statusCode === 'PUBLISHED' || tour.statusCode === 'REGISTRATION_OPEN') && isRegistrationTimelineOpen(tour);
-=======
     const code = (tour.statusCode || '').toUpperCase();
     return code === 'REGISTRATION_OPEN' || (code === 'PUBLISHED' && isRegistrationTimelineOpen(tour));
   };
@@ -302,7 +299,6 @@ export default function TournamentsScreen() {
       isOpen: false,
       code,
     };
->>>>>>> 7f58b7f90779e8bb0c10c2799511b6fd3b4de888
   };
 
   // Group listings

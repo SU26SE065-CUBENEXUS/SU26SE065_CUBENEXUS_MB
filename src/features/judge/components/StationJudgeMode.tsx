@@ -19,11 +19,10 @@ type StationTab = 'station' | 'scan' | 'roster' | 'score' | 'history';
 
 interface Props {
   token: string | null;
-  onChangeDuty: () => void;
   onLogout: () => void;
 }
 
-export default function StationJudgeMode({ token, onChangeDuty, onLogout }: Props) {
+export default function StationJudgeMode({ token, onLogout }: Props) {
   const colors = useTheme();
   const { user } = useAuth();
   const [activeTab, setActiveTab] = useState<StationTab>('station');
@@ -54,11 +53,11 @@ export default function StationJudgeMode({ token, onChangeDuty, onLogout }: Prop
   };
 
   const tabs: { key: StationTab; label: string; icon: string }[] = [
-    { key: 'station', label: 'Cấu Hình', icon: 'cog-outline' },
-    { key: 'scan', label: 'Quét Mã', icon: 'qrcode-scan' },
-    { key: 'roster', label: 'Danh Sách', icon: 'account-group-outline' },
-    { key: 'score', label: 'Chấm Điểm', icon: 'timer-check-outline' },
-    { key: 'history', label: 'Lịch Sử', icon: 'clipboard-text-clock-outline' },
+    { key: 'station', label: 'Config', icon: 'cog-outline' },
+    { key: 'scan', label: 'Scan Code', icon: 'qrcode-scan' },
+    { key: 'roster', label: 'Roster', icon: 'account-group-outline' },
+    { key: 'score', label: 'Score Input', icon: 'timer-check-outline' },
+    { key: 'history', label: 'History', icon: 'clipboard-text-clock-outline' },
   ];
 
   return (
@@ -67,12 +66,9 @@ export default function StationJudgeMode({ token, onChangeDuty, onLogout }: Prop
         <View style={[styles.header, { borderBottomColor: colors.border }]}>
           <TouchableOpacity onPress={onLogout} style={styles.logoutHeaderBtn}>
             <MaterialCommunityIcons name="logout" size={16} color="#ef4444" />
-            <Text style={[styles.logoutHeaderText, { color: '#ef4444' }]}>Đăng Xuất</Text>
+            <Text style={[styles.logoutHeaderText, { color: '#ef4444' }]}>Logout</Text>
           </TouchableOpacity>
           <View style={styles.headerCenter}>
-            <TouchableOpacity onPress={onChangeDuty} style={styles.backBtn}>
-              <MaterialCommunityIcons name="arrow-left" size={16} color={colors.text} />
-            </TouchableOpacity>
             <Image
               source={require('@/assets/images/logoCube.png')}
               style={styles.miniLogo}
