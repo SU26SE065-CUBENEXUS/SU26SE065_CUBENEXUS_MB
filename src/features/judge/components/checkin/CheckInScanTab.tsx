@@ -184,7 +184,8 @@ export default function CheckInScanTab({ isScanning, lastResult, onScan, onClear
         <View style={styles.instructionText}>
           <Text style={styles.instructionTitle}>Điểm Danh Thí Sinh Tại Quầy</Text>
           <Text style={[styles.instructionSub, { color: colors.textSecondary }]}>
-            Quét mã QR trên vé thi đấu của thí sinh để hoàn tất thủ tục điểm danh.
+            Quét QR → xác minh Face ID đã đăng ký trên Profile thí sinh → điểm danh.
+            (Judge không đăng ký Face ID giúp competitor.)
           </Text>
         </View>
       </View>

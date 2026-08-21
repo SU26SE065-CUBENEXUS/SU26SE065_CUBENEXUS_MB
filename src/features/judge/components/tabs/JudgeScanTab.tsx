@@ -177,9 +177,9 @@ export default function JudgeScanTab({
     return (
       <View style={styles.notConfigured}>
         <MaterialCommunityIcons name="connection" size={36} color={colors.border} />
-        <Text style={[styles.notConfiguredTitle, { color: colors.textSecondary }]}>Trạm Chưa Được Kết Nối</Text>
+        <Text style={[styles.notConfiguredTitle, { color: colors.textSecondary }]}>Station Disconnected</Text>
         <Text style={[styles.notConfiguredSub, { color: colors.textSecondary }]}>
-          Vui lòng sang tab Cấu Hình để chọn Vòng thi và kết nối trạm chấm điểm.
+          Please go to Config tab to select Round and connect Station.
         </Text>
       </View>
     );
@@ -190,7 +190,7 @@ export default function JudgeScanTab({
       <View style={[styles.contextChip, { backgroundColor: colors.backgroundElement, borderColor: colors.border }]}>
         <MaterialCommunityIcons name="timer-check-outline" size={12} color={colors.primary} />
         <Text style={[styles.contextChipText, { color: colors.textSecondary }]}>
-          Vòng {laneConfig.roundNumber} | Station {laneConfig.stationNumber}
+          Round {laneConfig.roundNumber} | Station {laneConfig.stationNumber}
         </Text>
         {activeEvent && (
           <Text style={[styles.contextChipText, { color: colors.primary }]}>
@@ -210,7 +210,7 @@ export default function JudgeScanTab({
         ) : (
           <View style={styles.cameraPlaceholder}>
             <MaterialCommunityIcons name="camera-outline" size={36} color="rgba(255,255,255,0.12)" />
-            <Text style={styles.cameraPlaceholderText}>SẴN SÀNG QUÉT MÃ QR</Text>
+            <Text style={styles.cameraPlaceholderText}>READY TO SCAN QR CODE</Text>
           </View>
         )}
         {showCamera && (
@@ -228,12 +228,12 @@ export default function JudgeScanTab({
         {isVerifying ? (
           <>
             <ActivityIndicator size="small" color="#fff" />
-            <Text style={styles.scanBtnText}>Đang xác nhận mã QR…</Text>
+            <Text style={styles.scanBtnText}>Verifying QR Code…</Text>
           </>
         ) : (
           <>
             <MaterialCommunityIcons name={showCamera ? 'camera-off' : 'qrcode-scan'} size={16} color="#fff" />
-            <Text style={styles.scanBtnText}>{showCamera ? 'Tắt Ống Kính Quét' : '📷 Quét Mã QR Thí Sinh'}</Text>
+            <Text style={styles.scanBtnText}>{showCamera ? 'Turn Off Camera' : '📷 Scan Competitor QR Code'}</Text>
           </>
         )}
       </TouchableOpacity>
@@ -253,7 +253,7 @@ export default function JudgeScanTab({
               color={scanResult.success ? '#10b981' : '#ef4444'}
             />
             <Text style={[styles.resultTitle, { color: scanResult.success ? '#10b981' : '#ef4444' }]}>
-              {scanResult.success ? 'Xác Nhận Thí Sinh Hợp Lệ' : 'Xác Nhận Không Thành Công'}
+              {scanResult.success ? 'Competitor Verified' : 'Verification Failed'}
             </Text>
             <TouchableOpacity onPress={() => setScanResult(null)} style={{ marginLeft: 'auto' }}>
               <MaterialCommunityIcons name="close" size={14} color={colors.textSecondary} />
@@ -271,7 +271,7 @@ export default function JudgeScanTab({
                 onPress={() => onSelectForScoring(scanResult.competitor!)}
               >
                 <MaterialCommunityIcons name="timer-play-outline" size={14} color="#fff" />
-                <Text style={styles.scoreBtnText}>Mở Bảng Chấm Điểm</Text>
+                <Text style={styles.scoreBtnText}>Open Score Input</Text>
               </TouchableOpacity>
             </>
           ) : (
@@ -280,13 +280,13 @@ export default function JudgeScanTab({
               {(scanResult.errorCode === 'NOT_CHECKED_IN' || scanResult.message.includes('NOT_CHECKED_IN')) && (
                 <View style={[styles.noteBox, { backgroundColor: '#ef444412', borderColor: '#ef444430' }]}>
                   <MaterialCommunityIcons name="information-outline" size={12} color="#ef4444" />
-                  <Text style={styles.noteText}>Thí sinh chưa làm thủ tục Check-in tại bàn đón tiếp của giải đấu.</Text>
+                  <Text style={styles.noteText}>Competitor has not checked in at the registration desk.</Text>
                 </View>
               )}
               {scanResult.errorCode === 'NOT_IN_ROSTER' && (
                 <View style={[styles.noteBox, { backgroundColor: '#ef444412', borderColor: '#ef444430' }]}>
                   <MaterialCommunityIcons name="alert-outline" size={12} color="#ef4444" />
-                  <Text style={styles.noteText}>Mã QR hợp lệ nhưng thí sinh không có tên trong danh sách thi đấu tại Trạm này.</Text>
+                  <Text style={styles.noteText}>Valid QR Code, but competitor is not assigned to this Station.</Text>
                 </View>
               )}
             </>
@@ -295,10 +295,10 @@ export default function JudgeScanTab({
       )}
 
       <View style={[styles.instructionBox, { backgroundColor: colors.backgroundElement, borderColor: colors.border }]}>
-        <Text style={[styles.instructionTitle, { color: colors.textSecondary }]}>Quy Định Quét Mã QR Xác Nhận</Text>
-        <Text style={[styles.instructionLine, { color: colors.textSecondary }]}>- Hệ thống đối soát trực tiếp mã QR với danh sách thí sinh chính thức từ BTC.</Text>
-        <Text style={[styles.instructionLine, { color: colors.textSecondary }]}>- Thí sinh phải làm thủ tục Check-in và có lịch thi đấu hợp lệ.</Text>
-        <Text style={[styles.instructionLine, { color: colors.textSecondary }]}>- Thí sinh không thuộc danh sách trạm sẽ không thể mở bảng nhập điểm.</Text>
+        <Text style={[styles.instructionTitle, { color: colors.textSecondary }]}>QR Code Scanning Guidelines</Text>
+        <Text style={[styles.instructionLine, { color: colors.textSecondary }]}>- System directly verifies QR token with official competitor roster.</Text>
+        <Text style={[styles.instructionLine, { color: colors.textSecondary }]}>- Competitors must complete Check-in and have an active schedule.</Text>
+        <Text style={[styles.instructionLine, { color: colors.textSecondary }]}>- Competitors not assigned to this Station cannot access score input.</Text>
       </View>
     </ScrollView>
   );

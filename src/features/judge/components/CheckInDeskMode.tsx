@@ -3,20 +3,22 @@ import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTheme } from '@/hooks/use-theme';
+import { useAuth } from '@/contexts/AuthContext';
 import { useCheckInDesk } from '../services/judgeService';
 import CheckInScanTab from './checkin/CheckInScanTab';
 import CheckInRecentTab from './checkin/CheckInRecentTab';
+import FaceCheckInModal from '@/features/face-verification/FaceCheckInModal';
 
 type CheckInTab = 'scan' | 'recent';
 
 interface Props {
   token: string | null;
-  onChangeDuty: () => void;
   onLogout: () => void;
 }
 
-export default function CheckInDeskMode({ token, onChangeDuty, onLogout }: Props) {
+export default function CheckInDeskMode({ token, onLogout }: Props) {
   const colors = useTheme();
+  const { user } = useAuth();
   const [activeTab, setActiveTab] = useState<CheckInTab>('scan');
   const {
     isScanning,
@@ -24,7 +26,10 @@ export default function CheckInDeskMode({ token, onChangeDuty, onLogout }: Props
     allRegistrations,
     checkedInIds,
     isLoadingRoster,
+    pendingFace,
     performCheckIn,
+    completeCheckInAfterFace,
+    cancelFaceCheckIn,
     clearResult,
     refreshRegistrations,
   } = useCheckInDesk(token);
@@ -37,16 +42,34 @@ export default function CheckInDeskMode({ token, onChangeDuty, onLogout }: Props
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       <SafeAreaView style={styles.safe} edges={['top']}>
-        {/* Header */}
         <View style={[styles.header, { borderBottomColor: colors.border }]}>
-          <View style={styles.headerCenter}>
-            <MaterialCommunityIcons name="account-check-outline" size={16} color="#10b981" />
-            <Text style={[styles.headerTitle, { color: '#10b981' }]}>CHECK-IN DESK</Text>
+          <View style={styles.headerLeft}>
+            <View style={styles.headerBadge}>
+              <MaterialCommunityIcons name="account-check-outline" size={18} color="#10b981" />
+              <Text style={styles.headerTitle}>CHECK-IN DESK</Text>
+            </View>
           </View>
-          <TouchableOpacity onPress={onLogout} style={styles.logoutBtn}>
-            <MaterialCommunityIcons name="logout" size={18} color={colors.textSecondary} />
-          </TouchableOpacity>
+          <View style={styles.headerRight}>
+            <TouchableOpacity onPress={onLogout} style={styles.iconBtn} activeOpacity={0.7}>
+              <MaterialCommunityIcons name="logout" size={18} color={colors.textSecondary} />
+            </TouchableOpacity>
+          </View>
         </View>
+
+        {/* Tournament Name Banner Card (Spacious & No Truncation) */}
+        {user?.assignedTournamentName ? (
+          <View style={[styles.tournamentBanner, { backgroundColor: colors.backgroundElement, borderColor: colors.border }]}>
+            <View style={styles.bannerIconBox}>
+              <MaterialCommunityIcons name="trophy-outline" size={16} color="#10b981" />
+            </View>
+            <View style={styles.bannerContent}>
+              <Text style={[styles.bannerLabel, { color: colors.textSecondary }]}>TOURNAMENT ON-DUTY</Text>
+              <Text style={[styles.tournamentName, { color: colors.text }]}>
+                {user.assignedTournamentName}
+              </Text>
+            </View>
+          </View>
+        ) : null}
 
         {/* Tab Bar */}
         <View style={[styles.tabBar, { backgroundColor: colors.backgroundElement, borderBottomColor: colors.border }]}>
@@ -77,7 +100,6 @@ export default function CheckInDeskMode({ token, onChangeDuty, onLogout }: Props
           })}
         </View>
 
-        {/* Tab content */}
         <View style={{ flex: 1 }}>
           {activeTab === 'scan' ? (
             <CheckInScanTab
@@ -96,6 +118,16 @@ export default function CheckInDeskMode({ token, onChangeDuty, onLogout }: Props
           )}
         </View>
       </SafeAreaView>
+
+      {token && pendingFace ? (
+        <FaceCheckInModal
+          visible
+          token={token}
+          session={pendingFace.session}
+          onVerified={completeCheckInAfterFace}
+          onCancel={cancelFaceCheckIn}
+        />
+      ) : null}
     </View>
   );
 }
@@ -107,13 +139,40 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 12,
+    paddingHorizontal: 16,
     height: 52,
     borderBottomWidth: 1,
   },
-  headerCenter: { flexDirection: 'row', alignItems: 'center', gap: 6, flex: 1, justifyContent: 'center' },
-  headerTitle: { fontSize: 11, fontWeight: '900', letterSpacing: 0.6 },
-  logoutBtn: { width: 36, height: 36, justifyContent: 'center', alignItems: 'center' },
+  headerLeft: { flexDirection: 'row', alignItems: 'center' },
+  headerBadge: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  headerTitle: { fontSize: 13, fontWeight: '900', color: '#10b981', letterSpacing: 0.8 },
+  headerRight: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  iconBtn: { width: 36, height: 36, justifyContent: 'center', alignItems: 'center', borderRadius: 8 },
+
+  tournamentBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    marginHorizontal: 12,
+    marginTop: 8,
+    marginBottom: 6,
+    borderRadius: 12,
+    borderWidth: 1,
+    gap: 10,
+  },
+  bannerIconBox: {
+    width: 32,
+    height: 32,
+    borderRadius: 8,
+    backgroundColor: '#10b98115',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  bannerContent: { flex: 1 },
+  bannerLabel: { fontSize: 9, fontWeight: '800', letterSpacing: 0.8, marginBottom: 1 },
+  tournamentName: { fontSize: 13, fontWeight: '700', lineHeight: 18 },
+
   tabBar: {
     flexDirection: 'row',
     borderBottomWidth: 1,

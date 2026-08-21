@@ -9,9 +9,11 @@ import {
   getSolveProgress,
   getTournamentById,
   getTournamentCheckInRoster,
+  startCheckInFaceSession,
   submitMedleyResult,
   submitTraditionalResult,
   verifyJudgeStation,
+  type FaceSessionStartDto,
 } from '@/constants/api';
 import {
   CheckInRecord,
@@ -197,7 +199,7 @@ export function useJudgeLaneConfig(token: string | null) {
   const [hubConnection, setHubConnection] = useState<signalR.HubConnection | null>(null);
   const [isHubConnected, setIsHubConnected] = useState(false);
   const [hubStatus, setHubStatus] = useState<'Disconnected' | 'Connecting' | 'Connected' | 'Failed'>('Disconnected');
-  const [statusMessage, setStatusMessage] = useState('Vui lòng chọn Vòng thi và bấm Kết Nối Vòng.');
+  const [statusMessage, setStatusMessage] = useState('Please select Round and click Connect.');
 
   const [laneConfigState, setLaneConfigState] = useState<JudgeLaneConfig | null>(getLaneConfig());
 
@@ -206,9 +208,16 @@ export function useJudgeLaneConfig(token: string | null) {
       setIsLoadingTournaments(true);
       try {
         const tournList = await getPublicTournaments();
-        setTournaments(tournList);
-        if (tournList.length > 0) {
-          setSelectedTournamentId(tournList[0].id);
+        const payload = token ? parseJwtClaims(token) : null;
+        const assignedId = payload?.tournament_id || payload?.TournamentId || payload?.tournamentId;
+        const filtered = assignedId
+          ? tournList.filter(t => t.id === assignedId)
+          : tournList;
+
+        const finalTournaments = filtered.length > 0 ? filtered : tournList;
+        setTournaments(finalTournaments);
+        if (finalTournaments.length > 0) {
+          setSelectedTournamentId(finalTournaments[0].id);
         }
       } catch (err) {
         console.error('Failed to load tournaments:', err);
@@ -217,7 +226,7 @@ export function useJudgeLaneConfig(token: string | null) {
       }
     }
     loadTournaments();
-  }, []);
+  }, [token]);
 
   useEffect(() => {
     if (!token) return;
@@ -287,13 +296,13 @@ export function useJudgeLaneConfig(token: string | null) {
       }
       setIsHubConnected(false);
       setHubStatus('Disconnected');
-      setStatusMessage('Thông tin vòng thi thay đổi. Vui lòng bấm Kết Nối lại.');
+      setStatusMessage('Round configuration changed. Please click Connect again.');
     }
   }, [selectedTournamentId, selectedEventId, roundNumber, groupNumber, stationNumber, hubConnection]);
 
   const loadStationRoster = useCallback(async (config: JudgeLaneConfig) => {
     if (!token) {
-      throw new Error('Yêu cầu đăng nhập lại.');
+      throw new Error('Authorization required. Please log in again.');
     }
     setIsLoadingRoster(true);
     try {
@@ -309,8 +318,8 @@ export function useJudgeLaneConfig(token: string | null) {
       setStationQueue(roster);
       setStatusMessage(
         roster.length > 0
-          ? `Đã kết nối thành công! Đã tải danh sách ${roster.length} đấu thủ tại Trạm ${config.stationNumber}.`
-          : `Đã kết nối thành công. Hiện chưa có đấu thủ thi đấu tại Trạm ${config.stationNumber}.`
+          ? `Connected successfully! Loaded ${roster.length} competitors for Station ${config.stationNumber}.`
+          : `Connected successfully. No competitors currently assigned for Station ${config.stationNumber}.`
       );
       return roster;
     } finally {
@@ -327,7 +336,7 @@ export function useJudgeLaneConfig(token: string | null) {
     }
 
     if (!selectedEventId || !roundNumber || !stationNumber) {
-      setStatusMessage('Chưa chọn đầy đủ thông tin Vòng thi.');
+      setStatusMessage('Please select all required Round information.');
       return;
     }
 
@@ -382,8 +391,8 @@ export function useJudgeLaneConfig(token: string | null) {
       const missingRosterApi = err?.status === 404 && String(err.message || '').includes('station-roster');
       setStatusMessage(
         missingRosterApi
-          ? 'Đã kết nối tín hiệu nhưng server chưa trả về danh sách thí sinh.'
-          : `Kết nối không thành công: ${err.message || err}`
+          ? 'Connected to SignalR hub, but server returned no competitor roster.'
+          : `Connection failed: ${err.message || err}`
       );
     }
   }, [
@@ -405,7 +414,7 @@ export function useJudgeLaneConfig(token: string | null) {
     }
     setIsHubConnected(false);
     setHubStatus('Disconnected');
-    setStatusMessage('Đã ngắt kết nối. Vui lòng chọn Vòng thi và bấm Kết Nối lại.');
+    setStatusMessage('Disconnected. Please select Round and click Connect again.');
     clearLaneConnection();
     setLaneConfigState(null);
   }, [hubConnection]);
@@ -545,6 +554,7 @@ export function useCheckInDesk(token: string | null) {
   const [allRegistrations, setAllRegistrations] = useState<{ registrationId: string; competitorName: string; statusCode: string }[]>([]);
   const [checkedInIds, setCheckedInIds] = useState<Set<string>>(new Set());
   const [isLoadingRoster, setIsLoadingRoster] = useState(false);
+  const [pendingFace, setPendingFace] = useState<{ qrToken: string; session: FaceSessionStartDto } | null>(null);
 
   // Parse tournament_id from JWT token
   const tournamentId: string | null = (() => {
@@ -617,7 +627,34 @@ export function useCheckInDesk(token: string | null) {
     }
 
     try {
-      const res = await checkInRegistration(qrToken, token);
+      // Step 1: create face verification session for this QR / competitor
+      const faceSession = await startCheckInFaceSession(qrToken, token);
+      setPendingFace({ qrToken, session: faceSession });
+    } catch (err: any) {
+      const code = err?.errorCode;
+      const message =
+        code === 'FACE_NOT_ENROLLED'
+          ? (err.message || 'Thí sinh chưa đăng ký Face ID trên Profile. Judge không đăng ký giúp được.')
+          : (err.message || 'Không tạo được phiên xác minh khuôn mặt.');
+      setLastResult({
+        success: false,
+        message,
+      });
+      setIsScanning(false);
+    }
+  };
+
+  const completeCheckInAfterFace = async (faceVerificationSessionId: string): Promise<void> => {
+    if (!token || !pendingFace) {
+      setIsScanning(false);
+      return;
+    }
+
+    const { qrToken } = pendingFace;
+    setPendingFace(null);
+
+    try {
+      const res = await checkInRegistration(qrToken, token, faceVerificationSessionId);
       const record: CheckInRecord = {
         registrationId: res.registrationId,
         competitorName: res.playerName || '-',
@@ -627,7 +664,6 @@ export function useCheckInDesk(token: string | null) {
       };
       addCheckInRecord(record);
       setRecentHistory([...getLocalCheckInHistory()]);
-      // Update checkedInIds immediately in UI
       setCheckedInIds(prev => new Set([...prev, res.registrationId]));
       setLastResult({
         success: true,
@@ -644,6 +680,14 @@ export function useCheckInDesk(token: string | null) {
     }
   };
 
+  const cancelFaceCheckIn = (message?: string) => {
+    setPendingFace(null);
+    setIsScanning(false);
+    if (message) {
+      setLastResult({ success: false, message });
+    }
+  };
+
   return {
     isScanning,
     lastResult,
@@ -651,7 +695,10 @@ export function useCheckInDesk(token: string | null) {
     allRegistrations,
     checkedInIds,
     isLoadingRoster,
+    pendingFace,
     performCheckIn,
+    completeCheckInAfterFace,
+    cancelFaceCheckIn,
     clearResult: () => setLastResult(null),
     refreshRegistrations: loadRegistrations,
   };

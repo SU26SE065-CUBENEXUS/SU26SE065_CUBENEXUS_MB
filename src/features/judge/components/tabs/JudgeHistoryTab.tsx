@@ -26,9 +26,9 @@ export default function JudgeHistoryTab() {
     return (
       <View style={styles.emptyWrap}>
         <MaterialCommunityIcons name="clipboard-text-clock-outline" size={40} color={colors.border} />
-        <Text style={[styles.emptyTitle, { color: colors.textSecondary }]}>Chưa Có Lượt Thi Nào Đã Chấm</Text>
+        <Text style={[styles.emptyTitle, { color: colors.textSecondary }]}>No Judged Solves Yet</Text>
         <Text style={[styles.emptySub, { color: colors.textSecondary }]}>
-          Các kết quả thi đấu đã lưu sẽ tự động xuất hiện tại đây để đối soát.
+          Saved solve results will automatically appear here for audit.
         </Text>
       </View>
     );
@@ -45,7 +45,7 @@ export default function JudgeHistoryTab() {
       <View style={[styles.sessionNotice, { backgroundColor: colors.backgroundElement, borderColor: colors.border }]}>
         <MaterialCommunityIcons name="information-outline" size={11} color={colors.textSecondary} />
         <Text style={[styles.sessionNoticeText, { color: colors.textSecondary }]}>
-          Lịch sử phiên trực · Đã hoàn thành {history.length} lượt thi
+          Station Duty History · Completed {history.length} Solves
         </Text>
       </View>
 
@@ -59,7 +59,7 @@ export default function JudgeHistoryTab() {
             <View style={styles.historyRow}>
               <View style={[styles.solveCircle, { borderColor: item.isDnf ? '#ef4444' : '#10b981' }]}>
                 <Text style={[styles.solveCircleText, { color: item.isDnf ? '#ef4444' : '#10b981' }]}>
-                  Lượt {item.solveNumber}
+                  Solve {item.solveNumber}
                 </Text>
               </View>
               <View style={{ flex: 1 }}>
@@ -88,7 +88,7 @@ export default function JudgeHistoryTab() {
                   <Image source={{ uri: item.evidencePhotoUrl }} style={[styles.photoThumb, { borderColor: colors.border }]} />
                   <View style={styles.photoBadge}>
                     <MaterialCommunityIcons name="eye-outline" size={12} color={colors.primary} />
-                    <Text style={[styles.photoBadgeText, { color: colors.primary }]}>Xem Tờ Ghi Điểm / Minh Chứng</Text>
+                    <Text style={[styles.photoBadgeText, { color: colors.primary }]}>View Score Sheet / Evidence</Text>
                   </View>
                 </TouchableOpacity>
               </View>

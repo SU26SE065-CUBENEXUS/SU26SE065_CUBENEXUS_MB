@@ -13,11 +13,14 @@ import {
   Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
+import { useRouter, useFocusEffect } from 'expo-router';
 import { useTheme } from '@/hooks/use-theme';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useAuth } from '@/contexts/AuthContext';
 import { fetchMyProfile, updateMyProfile, UserProfileDto } from '@/services/profileService';
+import { FaceEnrollmentStatusDto, FaceSessionStartDto, getFaceEnrollmentMe, startFaceSelfTestSession } from '@/constants/api';
+import FaceEnrollmentModal from '@/features/face-verification/FaceEnrollmentModal';
+import FaceCheckInModal from '@/features/face-verification/FaceCheckInModal';
 
 export default function ProfileScreen() {
   const colors = useTheme();
@@ -34,6 +37,16 @@ export default function ProfileScreen() {
   const [phone, setPhone] = useState('');
   const [address, setAddress] = useState('');
   const [profileData, setProfileData] = useState<UserProfileDto | null>(null);
+
+  // Face enrollment
+  const [faceStatus, setFaceStatus] = useState<FaceEnrollmentStatusDto | null>(null);
+  const [faceLoading, setFaceLoading] = useState(false);
+  const [showFaceEnroll, setShowFaceEnroll] = useState(false);
+  const [faceEnrollMode, setFaceEnrollMode] = useState<'enroll' | 'update'>('enroll');
+  const [showFaceStatusModal, setShowFaceStatusModal] = useState(false);
+  const [showFaceSelfTest, setShowFaceSelfTest] = useState(false);
+  const [selfTestSession, setSelfTestSession] = useState<FaceSessionStartDto | null>(null);
+  const [selfTestStarting, setSelfTestStarting] = useState(false);
 
   const getInitials = (name?: string) => {
     if (!name) return 'C';
@@ -63,9 +76,97 @@ export default function ProfileScreen() {
     }
   }, [accessToken, user]);
 
+  const loadFaceEnrollment = useCallback(async () => {
+    if (!accessToken) return;
+    setFaceLoading(true);
+    try {
+      const status = await getFaceEnrollmentMe(accessToken);
+      setFaceStatus(status);
+    } catch (err) {
+      console.warn('Failed to load face enrollment status:', err);
+      setFaceStatus(null);
+    } finally {
+      setFaceLoading(false);
+    }
+  }, [accessToken]);
+
+  useFocusEffect(
+    useCallback(() => {
+      loadFaceEnrollment();
+    }, [loadFaceEnrollment])
+  );
+
   const handleOpenAccountSettings = () => {
     setShowAccountModal(true);
     loadProfileDetails();
+  };
+
+  const handleOpenFaceEnrollment = () => {
+    if (!accessToken) {
+      Alert.alert('Auth Error', 'You must be logged in to enroll Face ID.');
+      return;
+    }
+
+    if (faceStatus?.isEnrolled) {
+      setShowFaceStatusModal(true);
+      return;
+    }
+
+    setFaceEnrollMode('enroll');
+    setShowFaceEnroll(true);
+  };
+
+  const handleConfirmUpdateFace = () => {
+    setShowFaceStatusModal(false);
+    Alert.alert(
+      'Cập nhật Face ID?',
+      'Template khuôn mặt hiện tại sẽ được ghi đè. Chỉ cần chụp 3 ảnh nhanh.',
+      [
+        { text: 'Hủy', style: 'cancel' },
+        {
+          text: 'Cập nhật',
+          style: 'destructive',
+          onPress: () => {
+            setFaceEnrollMode('update');
+            setShowFaceEnroll(true);
+          },
+        },
+      ]
+    );
+  };
+
+  const handleStartFaceSelfTest = async () => {
+    if (!accessToken) {
+      Alert.alert('Auth Error', 'You must be logged in.');
+      return;
+    }
+    if (!faceStatus?.isEnrolled) {
+      Alert.alert('Chưa enroll', 'Hãy đăng ký Face ID trước khi thử xác minh.');
+      return;
+    }
+    setSelfTestStarting(true);
+    try {
+      const started = await startFaceSelfTestSession(accessToken);
+      setSelfTestSession(started);
+      setShowFaceStatusModal(false);
+      setShowFaceSelfTest(true);
+    } catch (err: any) {
+      const detail = [err?.errorCode, err?.message, err?.status ? `HTTP ${err.status}` : null]
+        .filter(Boolean)
+        .join(' — ');
+      Alert.alert('Không mở được thử xác minh', detail || 'Self-test failed');
+    } finally {
+      setSelfTestStarting(false);
+    }
+  };
+
+  const formatEnrolledAt = (value?: string | null) => {
+    if (!value) return '—';
+    try {
+      return new Date(value).toLocaleString();
+    } catch {
+      return value;
+    }
   };
 
   // ─── Handle Saving Profile ──────────────────────────────────────────────────
@@ -180,6 +281,68 @@ export default function ProfileScreen() {
             </View>
           </View>
 
+          {/* Face ID Enrollment Banner */}
+          <TouchableOpacity
+            style={[styles.editProfileBanner, { backgroundColor: colors.backgroundElement, borderColor: (faceStatus?.isEnrolled ? '#10b981' : colors.primary) + '40' }]}
+            onPress={handleOpenFaceEnrollment}
+            activeOpacity={0.8}
+          >
+            <View style={[styles.bannerIconBox, { backgroundColor: (faceStatus?.isEnrolled ? '#10b981' : colors.primary) + '15' }]}>
+              <MaterialCommunityIcons
+                name="face-recognition"
+                size={22}
+                color={faceStatus?.isEnrolled ? '#10b981' : colors.primary}
+              />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={[styles.bannerTitle, { color: colors.text }]}>Face ID / Đăng ký khuôn mặt</Text>
+              <Text style={[styles.bannerSub, { color: colors.textSecondary }]}>
+                {faceLoading
+                  ? 'Đang kiểm tra trạng thái...'
+                  : faceStatus?.isEnrolled
+                    ? `VERIFIED • ${faceStatus.templatesCount ?? 0} templates • chạm để xem chi tiết`
+                    : 'Chưa đăng ký — bắt buộc trước khi check-in offline'}
+              </Text>
+              {faceStatus?.isEnrolled ? (
+                <Text style={[styles.bannerSub, { color: '#10b981', marginTop: 4 }]}>
+                  Enrolled: {formatEnrolledAt(faceStatus.enrolledAt)}
+                  {faceStatus.qualityScore != null ? ` • Q=${faceStatus.qualityScore.toFixed(2)}` : ''}
+                </Text>
+              ) : null}
+            </View>
+            {faceLoading ? (
+              <ActivityIndicator size="small" color={colors.primary} />
+            ) : (
+              <View style={[styles.actionTag, {
+                backgroundColor: (faceStatus?.isEnrolled ? '#10b981' : '#f59e0b') + '15',
+                borderColor: (faceStatus?.isEnrolled ? '#10b981' : '#f59e0b') + '40',
+              }]}>
+                <Text style={[styles.actionTagText, { color: faceStatus?.isEnrolled ? '#10b981' : '#f59e0b' }]}>
+                  {faceStatus?.isEnrolled ? 'VERIFIED' : 'REQUIRED'}
+                </Text>
+              </View>
+            )}
+          </TouchableOpacity>
+
+          {/* Visible Verify button on Profile (only when already enrolled) */}
+          {faceStatus?.isEnrolled ? (
+            <TouchableOpacity
+              style={styles.verifyFaceBtn}
+              onPress={handleStartFaceSelfTest}
+              disabled={selfTestStarting}
+              activeOpacity={0.85}
+            >
+              {selfTestStarting ? (
+                <ActivityIndicator color="#fff" />
+              ) : (
+                <>
+                  <MaterialCommunityIcons name="shield-check" size={20} color="#fff" />
+                  <Text style={styles.verifyFaceBtnText}>VERIFY — thử xác minh Face ID</Text>
+                </>
+              )}
+            </TouchableOpacity>
+          ) : null}
+
           {/* Quick Edit Profile Banner */}
           <TouchableOpacity
             style={[styles.editProfileBanner, { backgroundColor: colors.backgroundElement, borderColor: colors.primary + '40' }]}
@@ -263,7 +426,7 @@ export default function ProfileScreen() {
                 <MaterialCommunityIcons name="account-cog" size={22} color={colors.primary} />
                 <Text style={[styles.modalTitle, { color: colors.text }]}>Account Settings</Text>
               </View>
-              <TouchableOpacity onPress={() => setShowAccountModal(false)} p-2>
+              <TouchableOpacity onPress={() => setShowAccountModal(false)}>
                 <MaterialCommunityIcons name="close" size={22} color={colors.text} />
               </TouchableOpacity>
             </View>
@@ -368,6 +531,129 @@ export default function ProfileScreen() {
         </KeyboardAvoidingView>
       </Modal>
 
+      {accessToken ? (
+        <FaceEnrollmentModal
+          visible={showFaceEnroll}
+          token={accessToken}
+          mode={faceEnrollMode}
+          onEnrolled={() => {
+            loadFaceEnrollment();
+            Alert.alert(
+              'VERIFIED',
+              faceEnrollMode === 'update'
+                ? 'Face ID đã được cập nhật thành công.'
+                : 'Face ID đã đăng ký thành công. Bạn có thể check-in offline bằng khuôn mặt.'
+            );
+          }}
+          onClose={(message) => {
+            setShowFaceEnroll(false);
+            loadFaceEnrollment();
+            if (message) {
+              Alert.alert(
+                faceEnrollMode === 'update' ? 'Cập nhật thất bại' : 'Đăng ký thất bại',
+                message
+              );
+            }
+          }}
+        />
+      ) : null}
+
+      {accessToken && selfTestSession ? (
+        <FaceCheckInModal
+          visible={showFaceSelfTest}
+          token={accessToken}
+          session={selfTestSession}
+          mode="self-test"
+          onVerified={() => {
+            setShowFaceSelfTest(false);
+            setSelfTestSession(null);
+            Alert.alert(
+              'VERIFIED',
+              'AI xác minh khuôn mặt thành công — khớp với Face ID đã đăng ký.'
+            );
+          }}
+          onCancel={(message) => {
+            setShowFaceSelfTest(false);
+            setSelfTestSession(null);
+            if (!message) return;
+            const isUserCancel = message.startsWith('Đã hủy');
+            Alert.alert(isUserCancel ? 'Đã hủy' : 'Xác minh thất bại', message);
+          }}
+        />
+      ) : null}
+
+      <Modal
+        visible={showFaceStatusModal}
+        animationType="slide"
+        transparent
+        onRequestClose={() => setShowFaceStatusModal(false)}
+      >
+        <View style={styles.modalBackdrop}>
+          <View style={[styles.modalCard, { backgroundColor: colors.background, borderColor: colors.border }]}>
+            <View style={[styles.modalHeader, { borderBottomColor: colors.border }]}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                <MaterialCommunityIcons name="check-decagram" size={22} color="#10b981" />
+                <Text style={[styles.modalTitle, { color: colors.text }]}>Face ID VERIFIED</Text>
+              </View>
+              <TouchableOpacity onPress={() => setShowFaceStatusModal(false)}>
+                <MaterialCommunityIcons name="close" size={22} color={colors.text} />
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView style={styles.faceStatusBody} contentContainerStyle={{ paddingBottom: 8 }}>
+              <Text style={[styles.faceStatusLine, { color: colors.text }]}>
+                Status: {faceStatus?.status || 'ENROLLED'}
+              </Text>
+              <Text style={[styles.faceStatusLine, { color: colors.textSecondary }]}>
+                Enrolled at: {formatEnrolledAt(faceStatus?.enrolledAt)}
+              </Text>
+              <Text style={[styles.faceStatusLine, { color: colors.textSecondary }]}>
+                Templates: {faceStatus?.templatesCount ?? 0}
+              </Text>
+              <Text style={[styles.faceStatusLine, { color: colors.textSecondary }]}>
+                Quality: {faceStatus?.qualityScore != null ? faceStatus.qualityScore.toFixed(3) : '—'}
+              </Text>
+              <Text style={[styles.faceStatusLine, { color: colors.textSecondary }]}>
+                Model: {faceStatus?.modelVersion || 'buffalo_l'}
+              </Text>
+              <Text style={[styles.faceStatusHint, { color: colors.textSecondary }]}>
+                Đã có Face ID. Bấm Verify để thử AI đối chiếu khuôn mặt thật với template đã lưu.
+              </Text>
+
+              <TouchableOpacity
+                style={[styles.saveBtn, { backgroundColor: '#10b981', marginTop: 8 }]}
+                onPress={handleStartFaceSelfTest}
+                disabled={selfTestStarting}
+              >
+                {selfTestStarting ? (
+                  <ActivityIndicator color="#fff" />
+                ) : (
+                  <>
+                    <MaterialCommunityIcons name="shield-check" size={18} color="#fff" />
+                    <Text style={styles.saveBtnText}>Verify — thử xác minh Face ID</Text>
+                  </>
+                )}
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[styles.saveBtn, { backgroundColor: colors.primary, marginTop: 10 }]}
+                onPress={handleConfirmUpdateFace}
+              >
+                <MaterialCommunityIcons name="face-recognition" size={18} color="#fff" />
+                <Text style={styles.saveBtnText}>Cập nhật Face ID</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[styles.cancelBtn, { borderColor: colors.border, marginTop: 10 }]}
+                onPress={() => setShowFaceStatusModal(false)}
+              >
+                <Text style={[styles.cancelBtnText, { color: colors.text }]}>Đóng</Text>
+              </TouchableOpacity>
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
+
     </View>
   );
 }
@@ -415,6 +701,23 @@ const styles = StyleSheet.create({
   },
   bannerTitle: { fontSize: 14, fontWeight: '800' },
   bannerSub: { fontSize: 11, fontWeight: '500', marginTop: 2 },
+  verifyFaceBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: '#10b981',
+    borderRadius: 14,
+    minHeight: 48,
+    marginTop: -12,
+    marginBottom: 24,
+    paddingHorizontal: 16,
+  },
+  verifyFaceBtnText: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: '800',
+  },
 
   // Settings
   sectionTitle: { fontSize: 13, fontWeight: '800', textTransform: 'uppercase', letterSpacing: 0.5 },
@@ -502,4 +805,8 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   saveBtnText: { color: '#ffffff', fontSize: 13.5, fontWeight: '800' },
+
+  faceStatusBody: { paddingHorizontal: 20, paddingTop: 18, paddingBottom: 10, gap: 8 },
+  faceStatusLine: { fontSize: 13, fontWeight: '600' },
+  faceStatusHint: { fontSize: 12, fontWeight: '500', marginTop: 6, lineHeight: 18 },
 });

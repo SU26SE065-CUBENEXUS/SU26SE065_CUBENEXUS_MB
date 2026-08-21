@@ -236,11 +236,226 @@ export async function getPenaltyTypes(token: string): Promise<PenaltyTypeDto[]> 
 // POST /api/tournament-operation/check-in
 // Role: JUDGE, MANAGER, ADMIN
 // Used by Check-in Desk mode to perform reception check-in via QR scan.
-export async function checkInRegistration(qrToken: string, token: string): Promise<CheckInResponseDto> {
+export async function checkInRegistration(
+  qrToken: string,
+  token: string,
+  faceVerificationSessionId?: string | null
+): Promise<CheckInResponseDto> {
   return apiFetch<CheckInResponseDto>('/api/tournament-operation/check-in', token, {
+    method: 'POST',
+    body: JSON.stringify({
+      qrToken,
+      ...(faceVerificationSessionId ? { faceVerificationSessionId } : {}),
+    }),
+  });
+}
+
+// ---------- Face Verification (offline check-in) ----------
+export interface FaceChallengeDto {
+  challengeId: string;
+  actions: string[];
+}
+
+export interface FaceSessionStartDto {
+  sessionId: string;
+  externalSessionId: string;
+  uploadToken: string;
+  challenge: FaceChallengeDto;
+  expiresAt: string;
+  state: string;
+  purpose: string;
+  contextType: string;
+  userId: string;
+  playerName?: string | null;
+  registrationId?: string | null;
+  tournamentId?: string | null;
+  faceEnrolled: boolean;
+}
+
+export interface FaceSessionStatusDto {
+  sessionId: string;
+  externalSessionId: string;
+  state: string;
+  purpose: string;
+  contextType: string;
+  userId: string;
+  registrationId?: string | null;
+  challenge?: FaceChallengeDto | null;
+  expiresAt: string;
+  result?: any;
+  failureReason?: string | null;
+  livenessPassed?: boolean | null;
+  faceMatched?: boolean | null;
+  similarity?: number | null;
+}
+
+async function apiFormFetch<T>(path: string, token: string, form: FormData): Promise<T> {
+  const response = await fetch(`${API_BASE_URL}${path}`, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+    body: form,
+  });
+
+  if (!response.ok) {
+    const errorBody = await response.json().catch(() => ({}));
+    const message = errorBody.message || `HTTP ${response.status}: ${response.statusText}`;
+    const error = new Error(message) as Error & { errorCode?: string; status?: number };
+    error.errorCode = errorBody.errorCode || errorBody.code;
+    error.status = response.status;
+    throw error;
+  }
+
+  return response.json();
+}
+
+export async function startCheckInFaceSession(qrToken: string, token: string): Promise<FaceSessionStartDto> {
+  return apiFetch<FaceSessionStartDto>('/api/face-verification/check-in/sessions', token, {
     method: 'POST',
     body: JSON.stringify({ qrToken }),
   });
+}
+
+/** Competitor self-test: match live face against enrolled Face ID template. */
+export async function startFaceSelfTestSession(token: string): Promise<FaceSessionStartDto> {
+  return apiFetch<FaceSessionStartDto>('/api/face-verification/self-test/sessions', token, {
+    method: 'POST',
+  });
+}
+
+export async function submitFacePassiveEvidence(
+  sessionId: string,
+  token: string,
+  frameUris: string[]
+): Promise<FaceSessionStatusDto> {
+  const form = new FormData();
+  frameUris.forEach((uri, index) => {
+    form.append('finalFrames', {
+      uri,
+      name: `frame_${index + 1}.jpg`,
+      type: 'image/jpeg',
+    } as any);
+  });
+  return apiFormFetch<FaceSessionStatusDto>(
+    `/api/face-verification/sessions/${sessionId}/passive-evidence`,
+    token,
+    form
+  );
+}
+
+export async function submitFaceActiveEvidence(
+  sessionId: string,
+  token: string,
+  frameUris: string[],
+  videoUri?: string | null
+): Promise<FaceSessionStatusDto> {
+  const form = new FormData();
+  form.append('metadata', JSON.stringify({ cameraMirror: true }));
+  frameUris.forEach((uri, index) => {
+    form.append('finalFrames', {
+      uri,
+      name: `final_${index + 1}.jpg`,
+      type: 'image/jpeg',
+    } as any);
+  });
+  if (videoUri) {
+    form.append('evidenceVideo', {
+      uri: videoUri,
+      name: 'challenge.mp4',
+      type: 'video/mp4',
+    } as any);
+  }
+  return apiFormFetch<FaceSessionStatusDto>(
+    `/api/face-verification/sessions/${sessionId}/evidence`,
+    token,
+    form
+  );
+}
+
+export interface FaceEnrollmentStatusDto {
+  userId: string;
+  isEnrolled: boolean;
+  status?: string | null;
+  modelVersion?: string | null;
+  qualityScore?: number | null;
+  templatesCount?: number;
+  enrolledAt?: string | null;
+}
+
+export async function getFaceEnrollmentMe(token: string): Promise<FaceEnrollmentStatusDto> {
+  return apiFetch<FaceEnrollmentStatusDto>('/api/face-verification/enrollment/me', token);
+}
+
+export async function startFaceEnrollmentSession(token: string): Promise<FaceSessionStartDto> {
+  return apiFetch<FaceSessionStartDto>('/api/face-verification/enrollment/sessions', token, {
+    method: 'POST',
+  });
+}
+
+export async function submitFaceEnrollmentEvidence(
+  sessionId: string,
+  token: string,
+  imageUris: string[],
+  videoUri?: string | null
+): Promise<FaceSessionStatusDto> {
+  const form = new FormData();
+  form.append('metadata', JSON.stringify({ cameraMirror: true, source: 'expo-profile-fast' }));
+  if (videoUri) {
+    form.append('evidenceVideo', {
+      uri: videoUri,
+      name: 'enrollment.mp4',
+      type: 'video/mp4',
+    } as any);
+  }
+  imageUris.forEach((uri, index) => {
+    form.append('images', {
+      uri,
+      name: `enrollment_${index + 1}.jpg`,
+      type: 'image/jpeg',
+    } as any);
+  });
+  return apiFormFetch<FaceSessionStatusDto>(
+    `/api/face-verification/enrollment/sessions/${sessionId}/evidence`,
+    token,
+    form
+  );
+}
+
+export interface FaceLandmarkDto {
+  label: string;
+  x: number;
+  y: number;
+}
+
+export interface FaceDensePointDto {
+  x: number;
+  y: number;
+}
+
+export interface FaceAnalyzeFrameDto {
+  status: string;
+  reason?: string | null;
+  faceCount?: number;
+  bbox?: number[] | null;
+  landmarks?: FaceLandmarkDto[];
+  landmarksDense?: FaceDensePointDto[];
+  imageWidth?: number;
+  imageHeight?: number;
+  faceRatio?: number;
+  brightness?: number;
+  sharpness?: number;
+  passiveLiveness?: number;
+}
+
+export async function analyzeFaceFrame(token: string, frameUri: string): Promise<FaceAnalyzeFrameDto> {
+  const form = new FormData();
+  form.append('frame', {
+    uri: frameUri,
+    name: 'frame.jpg',
+    type: 'image/jpeg',
+  } as any);
+  return apiFormFetch<FaceAnalyzeFrameDto>('/api/face-verification/analyze-frame', token, form);
 }
 
 // ---------- Mobile Timer (Online Arena Match) Endpoints ----------

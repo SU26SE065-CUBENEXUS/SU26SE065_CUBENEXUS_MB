@@ -4,6 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Colors } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
+import { useAuth } from '@/contexts/AuthContext';
 import { useJudgeLaneConfig, useJudgeStationQueue } from '../services/judgeService';
 import { getSelectedCompetitorId, setSelectedCompetitorId, subscribeJudgeStore } from '../services/judgeStore';
 import { JudgeStationCompetitor } from '../types';
@@ -18,12 +19,12 @@ type StationTab = 'station' | 'scan' | 'roster' | 'score' | 'history';
 
 interface Props {
   token: string | null;
-  onChangeDuty: () => void;
   onLogout: () => void;
 }
 
-export default function StationJudgeMode({ token, onChangeDuty, onLogout }: Props) {
+export default function StationJudgeMode({ token, onLogout }: Props) {
   const colors = useTheme();
+  const { user } = useAuth();
   const [activeTab, setActiveTab] = useState<StationTab>('station');
   const [selectedCompId, setSelectedCompId] = useState<string | null>(getSelectedCompetitorId());
 
@@ -52,11 +53,11 @@ export default function StationJudgeMode({ token, onChangeDuty, onLogout }: Prop
   };
 
   const tabs: { key: StationTab; label: string; icon: string }[] = [
-    { key: 'station', label: 'Cấu Hình', icon: 'cog-outline' },
-    { key: 'scan', label: 'Quét Mã', icon: 'qrcode-scan' },
-    { key: 'roster', label: 'Danh Sách', icon: 'account-group-outline' },
-    { key: 'score', label: 'Chấm Điểm', icon: 'timer-check-outline' },
-    { key: 'history', label: 'Lịch Sử', icon: 'clipboard-text-clock-outline' },
+    { key: 'station', label: 'Config', icon: 'cog-outline' },
+    { key: 'scan', label: 'Scan Code', icon: 'qrcode-scan' },
+    { key: 'roster', label: 'Roster', icon: 'account-group-outline' },
+    { key: 'score', label: 'Score Input', icon: 'timer-check-outline' },
+    { key: 'history', label: 'History', icon: 'clipboard-text-clock-outline' },
   ];
 
   return (
@@ -65,7 +66,7 @@ export default function StationJudgeMode({ token, onChangeDuty, onLogout }: Prop
         <View style={[styles.header, { borderBottomColor: colors.border }]}>
           <TouchableOpacity onPress={onLogout} style={styles.logoutHeaderBtn}>
             <MaterialCommunityIcons name="logout" size={16} color="#ef4444" />
-            <Text style={[styles.logoutHeaderText, { color: '#ef4444' }]}>Đăng Xuất</Text>
+            <Text style={[styles.logoutHeaderText, { color: '#ef4444' }]}>Logout</Text>
           </TouchableOpacity>
           <View style={styles.headerCenter}>
             <Image
@@ -75,6 +76,11 @@ export default function StationJudgeMode({ token, onChangeDuty, onLogout }: Prop
             />
             <Text style={[styles.brandCube, { color: colors.text }]}>CUBE</Text>
             <Text style={[styles.brandNexus, { color: colors.accent }]}>NEXUS</Text>
+            {user?.assignedTournamentName ? (
+              <Text style={[styles.tournamentTag, { color: colors.textSecondary }]} numberOfLines={1}>
+                · {user.assignedTournamentName}
+              </Text>
+            ) : null}
           </View>
           <View style={styles.headerRight}>
             <View style={[styles.connBadge, {
@@ -208,9 +214,11 @@ const styles = StyleSheet.create({
   },
   logoutHeaderText: { fontSize: 10, fontWeight: '800' },
   headerCenter: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  backBtn: { padding: 4, marginRight: 2 },
   miniLogo: { width: 18, height: 18, borderRadius: 4 },
   brandCube: { fontSize: 11, fontWeight: '900', letterSpacing: -0.3 },
   brandNexus: { fontSize: 11, fontWeight: '900', letterSpacing: -0.3 },
+  tournamentTag: { fontSize: 9, fontWeight: '700', maxWidth: 100 },
   headerRight: { minWidth: 60, alignItems: 'flex-end' },
   connBadge: { paddingHorizontal: 6, paddingVertical: 2, borderRadius: 5, borderWidth: 1 },
   connBadgeText: { fontSize: 7, fontWeight: '900', letterSpacing: 0.4 },
