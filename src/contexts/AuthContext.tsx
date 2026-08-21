@@ -33,11 +33,11 @@ function decodeBase64(input: string): string {
   const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/=';
   let str = input.replace(/=+$/, '');
   let output = '';
-  
+
   if (str.length % 4 === 1) {
     throw new Error('Invalid base64 string');
   }
-  
+
   for (
     let bc = 0, bs = 0, rbuffer, idx = 0;
     (rbuffer = str.charAt(idx++));
@@ -54,11 +54,11 @@ function parseJwt(token: string): Record<string, any> | null {
   try {
     const parts = token.split('.');
     if (parts.length < 2) return null;
-    
+
     const base64Url = parts[1];
     const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
     const decoded = decodeBase64(base64);
-    
+
     // Convert binary string to UTF-8
     const jsonPayload = decodeURIComponent(
       decoded
@@ -66,7 +66,7 @@ function parseJwt(token: string): Record<string, any> | null {
         .map((c) => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2))
         .join('')
     );
-    
+
     return JSON.parse(jsonPayload);
   } catch (e) {
     console.error('Error decoding JWT token:', e);
@@ -170,10 +170,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const login = useCallback(async (email: string, password: string) => {
-    const res = await fetch(`${API_BASE_URL}/api/auth/login`, {
+    const baseUrl = API_BASE_URL.replace(/\/+$/, '');
+    const res = await fetch(`${baseUrl}/api/auth/login`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
+        'ngrok-skip-browser-warning': 'true',
+        'bypass-tunnel-reminder': 'true',
       },
       body: JSON.stringify({ email, password }),
     });
@@ -185,7 +188,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     const data = await res.json();
     const token = data.accessToken;
-    
+
     const parsedUser = buildUserFromToken(token);
     if (!parsedUser) {
       throw new Error('Failed to parse user profile from JWT token.');
@@ -195,7 +198,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const upperRole = parsedUser.role.toUpperCase();
     const isCompetitor = upperRole === 'COMPETITOR';
     const isJudge = upperRole === 'JUDGE' || upperRole === 'ADMIN' || upperRole === 'MANAGER';
-    
+
     if (!isCompetitor && !isJudge) {
       throw new Error('Access Denied. Only competitors and judges are authorized on mobile.');
     }
