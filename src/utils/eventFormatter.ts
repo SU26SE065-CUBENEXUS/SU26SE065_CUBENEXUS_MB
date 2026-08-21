@@ -4,7 +4,7 @@ export function formatEventLabel(e?: {
   eventFormatCode?: string;
   medleyPuzzles?: { puzzleTypeName?: string; puzzleTypeCode?: string }[];
 } | null): string {
-  if (!e) return 'Môn thi';
+  if (!e) return 'Event';
   const isMedley = (e.eventFormatCode || '').toUpperCase() === 'MEDLEY';
   const baseName = e.puzzleTypeName || e.puzzleTypeCode || 'Rubik';
 

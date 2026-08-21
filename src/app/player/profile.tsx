@@ -119,12 +119,12 @@ export default function ProfileScreen() {
   const handleConfirmUpdateFace = () => {
     setShowFaceStatusModal(false);
     Alert.alert(
-      'Cập nhật Face ID?',
-      'Template khuôn mặt hiện tại sẽ được ghi đè. Chỉ cần chụp 3 ảnh nhanh.',
+      'Update Face ID?',
+      'The current face template will be replaced. Only 3 quick photos are required.',
       [
-        { text: 'Hủy', style: 'cancel' },
+        { text: 'Cancel', style: 'cancel' },
         {
-          text: 'Cập nhật',
+          text: 'Update',
           style: 'destructive',
           onPress: () => {
             setFaceEnrollMode('update');
@@ -141,7 +141,7 @@ export default function ProfileScreen() {
       return;
     }
     if (!faceStatus?.isEnrolled) {
-      Alert.alert('Chưa enroll', 'Hãy đăng ký Face ID trước khi thử xác minh.');
+      Alert.alert('Not Enrolled', 'Enroll Face ID before starting verification.');
       return;
     }
     setSelfTestStarting(true);
@@ -154,7 +154,7 @@ export default function ProfileScreen() {
       const detail = [err?.errorCode, err?.message, err?.status ? `HTTP ${err.status}` : null]
         .filter(Boolean)
         .join(' — ');
-      Alert.alert('Không mở được thử xác minh', detail || 'Self-test failed');
+      Alert.alert('Unable to Start Verification', detail || 'Self-test failed');
     } finally {
       setSelfTestStarting(false);
     }
@@ -295,13 +295,13 @@ export default function ProfileScreen() {
               />
             </View>
             <View style={{ flex: 1 }}>
-              <Text style={[styles.bannerTitle, { color: colors.text }]}>Face ID / Đăng ký khuôn mặt</Text>
+              <Text style={[styles.bannerTitle, { color: colors.text }]}>Face ID / Face Enrollment</Text>
               <Text style={[styles.bannerSub, { color: colors.textSecondary }]}>
                 {faceLoading
-                  ? 'Đang kiểm tra trạng thái...'
+                  ? 'Checking status...'
                   : faceStatus?.isEnrolled
-                    ? `VERIFIED • ${faceStatus.templatesCount ?? 0} templates • chạm để xem chi tiết`
-                    : 'Chưa đăng ký — bắt buộc trước khi check-in offline'}
+                    ? `VERIFIED • ${faceStatus.templatesCount ?? 0} templates • tap for details`
+                    : 'Not enrolled — required before offline check-in'}
               </Text>
               {faceStatus?.isEnrolled ? (
                 <Text style={[styles.bannerSub, { color: '#10b981', marginTop: 4 }]}>
@@ -337,7 +337,7 @@ export default function ProfileScreen() {
               ) : (
                 <>
                   <MaterialCommunityIcons name="shield-check" size={20} color="#fff" />
-                  <Text style={styles.verifyFaceBtnText}>VERIFY — thử xác minh Face ID</Text>
+                  <Text style={styles.verifyFaceBtnText}>VERIFY — Test Face ID</Text>
                 </>
               )}
             </TouchableOpacity>
@@ -541,8 +541,8 @@ export default function ProfileScreen() {
             Alert.alert(
               'VERIFIED',
               faceEnrollMode === 'update'
-                ? 'Face ID đã được cập nhật thành công.'
-                : 'Face ID đã đăng ký thành công. Bạn có thể check-in offline bằng khuôn mặt.'
+                ? 'Face ID was updated successfully.'
+                : 'Face ID was enrolled successfully. You can now check in offline using face verification.'
             );
           }}
           onClose={(message) => {
@@ -550,7 +550,7 @@ export default function ProfileScreen() {
             loadFaceEnrollment();
             if (message) {
               Alert.alert(
-                faceEnrollMode === 'update' ? 'Cập nhật thất bại' : 'Đăng ký thất bại',
+                faceEnrollMode === 'update' ? 'Update Failed' : 'Enrollment Failed',
                 message
               );
             }
@@ -569,15 +569,15 @@ export default function ProfileScreen() {
             setSelfTestSession(null);
             Alert.alert(
               'VERIFIED',
-              'AI xác minh khuôn mặt thành công — khớp với Face ID đã đăng ký.'
+              'AI face verification succeeded — matched the enrolled Face ID.'
             );
           }}
           onCancel={(message) => {
             setShowFaceSelfTest(false);
             setSelfTestSession(null);
             if (!message) return;
-            const isUserCancel = message.startsWith('Đã hủy');
-            Alert.alert(isUserCancel ? 'Đã hủy' : 'Xác minh thất bại', message);
+            const isUserCancel = message.startsWith('Verification cancelled');
+            Alert.alert(isUserCancel ? 'Cancelled' : 'Verification Failed', message);
           }}
         />
       ) : null}
@@ -617,7 +617,7 @@ export default function ProfileScreen() {
                 Model: {faceStatus?.modelVersion || 'buffalo_l'}
               </Text>
               <Text style={[styles.faceStatusHint, { color: colors.textSecondary }]}>
-                Đã có Face ID. Bấm Verify để thử AI đối chiếu khuôn mặt thật với template đã lưu.
+                Face ID is enrolled. Tap Verify to test the live face against the saved template.
               </Text>
 
               <TouchableOpacity
@@ -630,7 +630,7 @@ export default function ProfileScreen() {
                 ) : (
                   <>
                     <MaterialCommunityIcons name="shield-check" size={18} color="#fff" />
-                    <Text style={styles.saveBtnText}>Verify — thử xác minh Face ID</Text>
+                    <Text style={styles.saveBtnText}>Verify — Test Face ID</Text>
                   </>
                 )}
               </TouchableOpacity>
@@ -640,14 +640,14 @@ export default function ProfileScreen() {
                 onPress={handleConfirmUpdateFace}
               >
                 <MaterialCommunityIcons name="face-recognition" size={18} color="#fff" />
-                <Text style={styles.saveBtnText}>Cập nhật Face ID</Text>
+                <Text style={styles.saveBtnText}>Update Face ID</Text>
               </TouchableOpacity>
 
               <TouchableOpacity
                 style={[styles.cancelBtn, { borderColor: colors.border, marginTop: 10 }]}
                 onPress={() => setShowFaceStatusModal(false)}
               >
-                <Text style={[styles.cancelBtnText, { color: colors.text }]}>Đóng</Text>
+                <Text style={[styles.cancelBtnText, { color: colors.text }]}>Close</Text>
               </TouchableOpacity>
             </ScrollView>
           </View>

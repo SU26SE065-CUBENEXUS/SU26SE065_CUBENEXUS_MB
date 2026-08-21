@@ -182,10 +182,10 @@ export default function CheckInScanTab({ isScanning, lastResult, onScan, onClear
       <View style={[styles.instructionBanner, { backgroundColor: '#10b98112', borderColor: '#10b98130' }]}>
         <MaterialCommunityIcons name="account-check-outline" size={20} color="#10b981" />
         <View style={styles.instructionText}>
-          <Text style={styles.instructionTitle}>Điểm Danh Thí Sinh Tại Quầy</Text>
+          <Text style={styles.instructionTitle}>Competitor Check-in Desk</Text>
           <Text style={[styles.instructionSub, { color: colors.textSecondary }]}>
-            Quét QR → xác minh Face ID đã đăng ký trên Profile thí sinh → điểm danh.
-            (Judge không đăng ký Face ID giúp competitor.)
+            Scan QR → verify the competitor's enrolled Face ID → complete check-in.
+            (Judges do not enroll Face ID for competitors.)
           </Text>
         </View>
       </View>
@@ -202,7 +202,7 @@ export default function CheckInScanTab({ isScanning, lastResult, onScan, onClear
         ) : (
           <View style={styles.cameraPlaceholder}>
             <MaterialCommunityIcons name="camera-outline" size={36} color="rgba(255,255,255,0.15)" />
-            <Text style={styles.cameraPlaceholderText}>SẴN SÀNG MỞ CAMERA</Text>
+            <Text style={styles.cameraPlaceholderText}>READY TO OPEN CAMERA</Text>
           </View>
         )}
         {showCamera && (
@@ -230,13 +230,13 @@ export default function CheckInScanTab({ isScanning, lastResult, onScan, onClear
         {isScanning ? (
           <>
             <ActivityIndicator size="small" color="#fff" />
-            <Text style={styles.cameraBtnText}>Đang xử lý điểm danh…</Text>
+            <Text style={styles.cameraBtnText}>Processing check-in…</Text>
           </>
         ) : (
           <>
             <MaterialCommunityIcons name={showCamera ? 'camera-off' : 'camera'} size={16} color="#fff" />
             <Text style={styles.cameraBtnText}>
-              {showCamera ? 'Tắt Camera' : 'Mở Quét Mã QR'}
+              {showCamera ? 'Close Camera' : 'Open QR Scanner'}
             </Text>
           </>
         )}
@@ -250,10 +250,10 @@ export default function CheckInScanTab({ isScanning, lastResult, onScan, onClear
         const iconName = !lastResult.success ? 'alert-circle' : isAlreadyChecked ? 'alert-circle' : 'check-circle';
         const iconColor = !lastResult.success ? '#ef4444' : isAlreadyChecked ? '#f59e0b' : '#10b981';
         const titleText = !lastResult.success
-          ? 'Điểm Danh Thất Bại'
+          ? 'Check-in Failed'
           : isAlreadyChecked
-            ? 'Thí Sinh Đã Điểm Danh'
-            : 'Điểm Danh Thành Công';
+            ? 'Competitor Already Checked In'
+            : 'Check-in Successful';
 
         return (
           <View style={[styles.resultBox, { backgroundColor: boxBg, borderColor: boxBorder }]}>
@@ -289,7 +289,7 @@ export default function CheckInScanTab({ isScanning, lastResult, onScan, onClear
       <View style={[styles.hintBox, { backgroundColor: colors.backgroundElement, borderColor: colors.border }]}>
         <MaterialCommunityIcons name="information-outline" size={11} color={colors.textSecondary} />
         <Text style={[styles.hintText, { color: colors.textSecondary }]}>
-          Chỉ chấp nhận mã QR vé thi đấu CubeNexus chính thức của giải. Mỗi thí sinh có một mã QR điểm danh duy nhất.
+          Only official CubeNexus tournament QR tickets are accepted. Each competitor has one unique check-in QR code.
         </Text>
       </View>
     </ScrollView>

@@ -12,6 +12,7 @@ import {
   Platform,
   useColorScheme,
   RefreshControl,
+  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -22,6 +23,8 @@ import { useAuth } from '@/contexts/AuthContext';
 import { formatEventLabel } from '@/utils/eventFormatter';
 import { fetchCompetitorRegistrations } from '@/services/competitorService';
 import { RegistrationDto } from '@/types/competitor';
+import { FaceSessionStartDto, getCompetitorQrTicket, startCompetitorCheckInFaceSession } from '@/constants/api';
+import FaceCheckInModal from '@/features/face-verification/FaceCheckInModal';
 
 export default function PlayerHome() {
   const colors = useTheme();
@@ -33,6 +36,8 @@ export default function PlayerHome() {
   const [isLoading, setIsLoading] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [showQrModal, setShowQrModal] = useState(false);
+  const [faceSession, setFaceSession] = useState<FaceSessionStartDto | null>(null);
+  const [isStartingFace, setIsStartingFace] = useState(false);
 
   const getInitials = (name: string) => {
     if (!name) return 'C';
@@ -116,6 +121,56 @@ export default function PlayerHome() {
   };
 
   const qrCodeData = activeTournament ? getQrTokenValue(activeTournament.qrToken) : '';
+
+  const handleOpenQr = async () => {
+    if (!accessToken || !activeTournament || isStartingFace) return;
+    if (activeTournament.tournamentStatusCode !== 'CHECKING_IN' && activeTournament.tournamentStatusCode !== 'ONGOING') {
+      Alert.alert('QR Unavailable', 'QR can only be opened when the tournament is CHECKING_IN or ONGOING.');
+      return;
+    }
+    if (activeTournament.statusCode === 'CANCELLED') {
+      Alert.alert('Ticket Invalid', 'This registration has been cancelled.');
+      return;
+    }
+    if (activeTournament.statusCode !== 'CONFIRMED' && activeTournament.statusCode !== 'CHECKED_IN') {
+      Alert.alert('Invalid Registration', 'The registration must be confirmed before opening QR.');
+      return;
+    }
+
+    setIsStartingFace(true);
+    try {
+      const started = await startCompetitorCheckInFaceSession(activeTournament.tournamentId, accessToken);
+      setFaceSession(started);
+    } catch (err: any) {
+      Alert.alert('Unable to Open QR', err?.message || 'Unable to start face verification.');
+    } finally {
+      setIsStartingFace(false);
+    }
+  };
+
+  const handleFaceVerified = async (sessionId: string) => {
+    if (!activeTournament || !accessToken) return;
+    try {
+      const ticket = await getCompetitorQrTicket(activeTournament.tournamentId, sessionId, accessToken);
+      setRegistrations(previous => previous.map(reg =>
+        reg.registrationId === activeTournament.registrationId
+          ? { ...reg, qrToken: ticket.qrToken }
+          : reg
+      ));
+      setFaceSession(null);
+      setShowQrModal(true);
+    } catch (err: any) {
+      setFaceSession(null);
+      Alert.alert('Unable to Load QR', err?.message || 'The face session is no longer valid. Please try again.');
+    }
+  };
+
+  const handleFaceCancelled = (message?: string) => {
+    setFaceSession(null);
+    if (message && !message.startsWith('Verification cancelled')) {
+      Alert.alert('Verification Failed', message);
+    }
+  };
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
@@ -349,7 +404,7 @@ export default function PlayerHome() {
                       borderWidth: 1.2,
                     }
                   ]}
-                  onPress={() => setShowQrModal(true)}
+                  onPress={handleOpenQr}
                 >
                   <MaterialCommunityIcons name="qrcode" size={20} color={colors.primary} />
                   <Text style={[styles.qrCtaText, { color: scheme === 'dark' ? colors.text : colors.primary }]}>
@@ -376,6 +431,16 @@ export default function PlayerHome() {
           )}
 
         </ScrollView>
+
+        {accessToken && faceSession ? (
+          <FaceCheckInModal
+            visible
+            token={accessToken}
+            session={faceSession}
+            onVerified={handleFaceVerified}
+            onCancel={handleFaceCancelled}
+          />
+        ) : null}
 
         {/* QR Code Ticket Modal */}
         <Modal
