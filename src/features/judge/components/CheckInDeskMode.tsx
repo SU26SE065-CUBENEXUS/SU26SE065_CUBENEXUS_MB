@@ -7,7 +7,6 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useCheckInDesk } from '../services/judgeService';
 import CheckInScanTab from './checkin/CheckInScanTab';
 import CheckInRecentTab from './checkin/CheckInRecentTab';
-import FaceCheckInModal from '@/features/face-verification/FaceCheckInModal';
 
 type CheckInTab = 'scan' | 'recent';
 
@@ -26,17 +25,14 @@ export default function CheckInDeskMode({ token, onLogout }: Props) {
     allRegistrations,
     checkedInIds,
     isLoadingRoster,
-    pendingFace,
     performCheckIn,
-    completeCheckInAfterFace,
-    cancelFaceCheckIn,
     clearResult,
     refreshRegistrations,
   } = useCheckInDesk(token);
 
   const tabs: { key: CheckInTab; label: string; icon: string }[] = [
     { key: 'scan', label: 'Scan', icon: 'qrcode-scan' },
-    { key: 'recent', label: 'Danh Sách', icon: 'account-group-outline' },
+    { key: 'recent', label: 'Roster', icon: 'account-group-outline' },
   ];
 
   return (
@@ -119,15 +115,6 @@ export default function CheckInDeskMode({ token, onLogout }: Props) {
         </View>
       </SafeAreaView>
 
-      {token && pendingFace ? (
-        <FaceCheckInModal
-          visible
-          token={token}
-          session={pendingFace.session}
-          onVerified={completeCheckInAfterFace}
-          onCancel={cancelFaceCheckIn}
-        />
-      ) : null}
     </View>
   );
 }

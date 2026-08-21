@@ -133,7 +133,7 @@ export default function JudgeScoreTab({
     try {
       const permissionResult = await ImagePicker.requestCameraPermissionsAsync();
       if (!permissionResult.granted) {
-        Alert.alert('Quyền máy ảnh', 'Ứng dụng cần quyền sử dụng máy ảnh để chụp ảnh minh chứng.');
+        Alert.alert('Camera Permission', 'Camera access is required to capture evidence photos.');
         return;
       }
       const result = await ImagePicker.launchCameraAsync({
@@ -147,11 +147,11 @@ export default function JudgeScoreTab({
         if (dataUri) {
           addEvidencePhoto(dataUri);
         } else {
-          Alert.alert('Lỗi ảnh', 'Không thể đọc dữ liệu ảnh chụp. Vui lòng thử chọn lại.');
+          Alert.alert('Image Error', 'Unable to read the captured image. Please try again.');
         }
       }
     } catch (err: any) {
-      Alert.alert('Lỗi máy ảnh', err.message || 'Không thể mở máy ảnh.');
+      Alert.alert('Camera Error', err.message || 'Unable to open the camera.');
     }
   };
 
@@ -159,7 +159,7 @@ export default function JudgeScoreTab({
     try {
       const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
       if (!permissionResult.granted) {
-        Alert.alert('Quyền truy cập', 'Ứng dụng cần quyền truy cập thư viện ảnh để đính kèm minh chứng.');
+        Alert.alert('Permission Required', 'Photo library access is required to attach evidence.');
         return;
       }
 
@@ -177,7 +177,7 @@ export default function JudgeScoreTab({
             const dataUri = await convertAssetToBase64(asset);
             if (!dataUri) {
               console.warn('[JudgeScoreTab] Could not convert photo to base64, skipping:', asset.uri);
-              Alert.alert('Lỗi ảnh', 'Không thể đọc tệp ảnh này. Vui lòng chọn ảnh khác.');
+              Alert.alert('Image Error', 'Unable to read this image file. Please choose another image.');
               continue;
             }
             addEvidencePhoto(dataUri);
@@ -206,19 +206,19 @@ export default function JudgeScoreTab({
         };
         input.click();
       } else {
-        Alert.alert('Lỗi chọn ảnh', err.message || 'Không thể mở thư viện ảnh.');
+        Alert.alert('Image Picker Error', err.message || 'Unable to open the photo library.');
       }
     }
   };
 
   const handleSelectPhotoSource = () => {
     Alert.alert(
-      'Đính Kèm Ảnh Minh Chứng',
-      'Vui lòng chọn nguồn ảnh:',
+      'Attach Evidence Photos',
+      'Choose a photo source:',
       [
-        { text: '📷 Chụp Ảnh Trực Tiếp', onPress: handleTakePhoto },
-        { text: '🖼️ Chọn Từ Thư Viện', onPress: handlePickMultiplePhotos },
-        { text: 'Hủy', style: 'cancel' },
+        { text: '📷 Take Photo', onPress: handleTakePhoto },
+        { text: '🖼️ Choose from Library', onPress: handlePickMultiplePhotos },
+        { text: 'Cancel', style: 'cancel' },
       ]
     );
   };

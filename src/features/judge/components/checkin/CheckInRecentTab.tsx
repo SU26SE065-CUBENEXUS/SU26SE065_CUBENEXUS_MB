@@ -40,7 +40,7 @@ export default function CheckInRecentTab({
       <View style={styles.centerContainer}>
         <ActivityIndicator size="large" color="#10b981" />
         <Text style={[styles.loadingText, { color: colors.textSecondary }]}>
-          Đang tải danh sách thí sinh...
+          Loading competitor roster...
         </Text>
       </View>
     );
@@ -51,10 +51,10 @@ export default function CheckInRecentTab({
       <View style={styles.centerContainer}>
         <MaterialCommunityIcons name="account-group-outline" size={40} color={colors.border} />
         <Text style={[styles.emptyTitle, { color: colors.textSecondary }]}>
-          Chưa có thí sinh
+          No competitors
         </Text>
         <Text style={[styles.emptySub, { color: colors.textSecondary }]}>
-          Danh sách thí sinh đã xác nhận tham gia sẽ hiển thị ở đây. Vuốt xuống để cập nhật.
+          Checked-in competitors will appear here. Pull down to refresh.
         </Text>
       </View>
     );
@@ -76,19 +76,19 @@ export default function CheckInRecentTab({
           <View style={styles.statItem}>
             <MaterialCommunityIcons name="check-circle" size={14} color="#10b981" />
             <Text style={[styles.statValue, { color: '#10b981' }]}>{checkedCount}</Text>
-            <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Đã Check-In</Text>
+            <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Checked In</Text>
           </View>
           <View style={[styles.statDivider, { backgroundColor: colors.border }]} />
           <View style={styles.statItem}>
             <MaterialCommunityIcons name="account-clock-outline" size={14} color={colors.textSecondary} />
             <Text style={[styles.statValue, { color: colors.text }]}>{totalCount - checkedCount}</Text>
-            <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Chưa vào</Text>
+            <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Not Yet In</Text>
           </View>
           <View style={[styles.statDivider, { backgroundColor: colors.border }]} />
           <View style={styles.statItem}>
             <MaterialCommunityIcons name="account-group-outline" size={14} color={colors.textSecondary} />
             <Text style={[styles.statValue, { color: colors.text }]}>{totalCount}</Text>
-            <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Tổng</Text>
+            <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Total</Text>
           </View>
         </View>
       </View>
@@ -152,7 +152,7 @@ export default function CheckInRecentTab({
               {isCheckedIn ? (
                 <View style={styles.checkedBadge}>
                   <MaterialCommunityIcons name="check-circle" size={16} color="#10b981" />
-                  <Text style={styles.checkedText}>Đã vào</Text>
+                  <Text style={styles.checkedText}>Checked In</Text>
                 </View>
               ) : (
                 <MaterialCommunityIcons name="circle-outline" size={18} color={colors.border} />
