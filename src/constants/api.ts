@@ -134,6 +134,7 @@ export interface CheckInResponseDto {
   assignments: any[];
 }
 
+
 // ---------- API Fetch Helper ----------
 async function apiFetch<T>(path: string, token?: string, options: RequestInit = {}): Promise<T> {
   const headers = {
