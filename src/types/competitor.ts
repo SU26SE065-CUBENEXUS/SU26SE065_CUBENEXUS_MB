@@ -47,7 +47,7 @@ export interface RegistrationDto {
   userId: string;
   statusCode: RegistrationStatus;
   registeredAt: string;
-  qrToken: string;
+  qrToken?: string;
   tournamentStartDate?: string | null;
   tournamentEndDate?: string | null;
   tournamentStatusCode?: TournamentStatus | null;

@@ -27,6 +27,8 @@ import {
   registerForTournament,
 } from '@/services/competitorService';
 import { RegistrationDto, TournamentDetailDto, EventDetailDto } from '@/types/competitor';
+import { FaceSessionStartDto, getCompetitorQrTicket, startCompetitorCheckInFaceSession } from '@/constants/api';
+import FaceCheckInModal from '@/features/face-verification/FaceCheckInModal';
 
 type TabSegment = 'MY_REGS' | 'OPEN_TOURS' | 'PAST_TOURS';
 
@@ -83,6 +85,8 @@ export default function TournamentsScreen() {
   const [selectedTour, setSelectedTour] = useState<TournamentDetailDto | null>(null);
 
   const [showQrModal, setShowQrModal] = useState(false);
+  const [faceSession, setFaceSession] = useState<FaceSessionStartDto | null>(null);
+  const [isStartingFace, setIsStartingFace] = useState(false);
   const [showScheduleModal, setShowScheduleModal] = useState(false);
   const [showDetailModal, setShowDetailModal] = useState(false);
   const [submittingReg, setSubmittingReg] = useState(false);
@@ -139,17 +143,51 @@ export default function TournamentsScreen() {
     loadData(false);
   };
 
-  const handleOpenQr = (reg: RegistrationDto) => {
-    if (reg.tournamentStatusCode === 'COMPLETED') {
-      Alert.alert('Ticket Expired', 'This tournament has ended. QR ticket is no longer valid.');
+  const handleOpenQr = async (reg: RegistrationDto) => {
+    if (!accessToken || isStartingFace) return;
+    if (reg.tournamentStatusCode !== 'CHECKING_IN' && reg.tournamentStatusCode !== 'ONGOING') {
+      Alert.alert('QR Unavailable', 'QR can only be opened when the tournament is CHECKING_IN or ONGOING.');
       return;
     }
     if (reg.statusCode === 'CANCELLED') {
       Alert.alert('Ticket Invalid', 'This registration has been cancelled.');
       return;
     }
-    setSelectedReg(reg);
-    setShowQrModal(true);
+    if (reg.statusCode !== 'CONFIRMED' && reg.statusCode !== 'CHECKED_IN') {
+      Alert.alert('Invalid Registration', 'The registration must be confirmed before opening QR.');
+      return;
+    }
+
+    setIsStartingFace(true);
+    try {
+      const started = await startCompetitorCheckInFaceSession(reg.tournamentId, accessToken);
+      setSelectedReg(reg);
+      setFaceSession(started);
+    } catch (err: any) {
+      Alert.alert('Unable to Open QR', err?.message || 'Unable to start face verification.');
+    } finally {
+      setIsStartingFace(false);
+    }
+  };
+
+  const handleFaceVerified = async (sessionId: string) => {
+    if (!selectedReg || !accessToken) return;
+    try {
+      const ticket = await getCompetitorQrTicket(selectedReg.tournamentId, sessionId, accessToken);
+      setSelectedReg({ ...selectedReg, qrToken: ticket.qrToken });
+      setFaceSession(null);
+      setShowQrModal(true);
+    } catch (err: any) {
+      setFaceSession(null);
+      Alert.alert('Unable to Load QR', err?.message || 'The face session is no longer valid. Please try again.');
+    }
+  };
+
+  const handleFaceCancelled = (message?: string) => {
+    setFaceSession(null);
+    if (message && !message.startsWith('Verification cancelled')) {
+      Alert.alert('Verification Failed', message);
+    }
   };
 
   const handleOpenSchedule = (reg: RegistrationDto) => {
@@ -165,7 +203,7 @@ export default function TournamentsScreen() {
       setSelectedEventIds({});
       setShowDetailModal(true);
     } else {
-      Alert.alert('Lỗi', 'Không tìm thấy thông tin giải đấu.');
+      Alert.alert('Error', 'Tournament information was not found.');
     }
   };
 
@@ -227,7 +265,7 @@ export default function TournamentsScreen() {
 
     if (code === 'REGISTRATION_OPEN' || (code === 'PUBLISHED' && isTimelineOpen)) {
       return {
-        label: 'Đang Mở Đăng Ký',
+        label: 'Registration Open',
         badgeColor: '#10b981',
         bgColor: '#10b98118',
         borderColor: '#10b98140',
@@ -238,7 +276,7 @@ export default function TournamentsScreen() {
 
     if (code === 'PUBLISHED') {
       return {
-        label: isUpcomingReg ? 'Đã Công Bố (Sắp Mở)' : (isPastReg ? 'Đã Đóng Đăng Ký' : 'Đã Công Bố'),
+        label: isUpcomingReg ? 'Published (Upcoming)' : (isPastReg ? 'Registration Closed' : 'Published'),
         badgeColor: isUpcomingReg ? '#0284c7' : '#f59e0b',
         bgColor: isUpcomingReg ? '#0284c718' : '#f59e0b18',
         borderColor: isUpcomingReg ? '#0284c740' : '#f59e0b40',
@@ -249,7 +287,7 @@ export default function TournamentsScreen() {
 
     if (code === 'REGISTRATION_CLOSED') {
       return {
-        label: 'Đã Đóng Đăng Ký',
+        label: 'Registration Closed',
         badgeColor: '#f59e0b',
         bgColor: '#f59e0b18',
         borderColor: '#f59e0b40',
@@ -260,7 +298,7 @@ export default function TournamentsScreen() {
 
     if (code === 'CHECKING_IN') {
       return {
-        label: 'Đang Check-in',
+        label: 'Check-in Open',
         badgeColor: '#8b5cf6',
         bgColor: '#8b5cf618',
         borderColor: '#8b5cf640',
@@ -271,7 +309,7 @@ export default function TournamentsScreen() {
 
     if (code === 'ONGOING') {
       return {
-        label: 'Đang Diễn Ra',
+        label: 'Ongoing',
         badgeColor: '#8b5cf6',
         bgColor: '#8b5cf618',
         borderColor: '#8b5cf640',
@@ -282,7 +320,7 @@ export default function TournamentsScreen() {
 
     if (code === 'COMPLETED') {
       return {
-        label: 'Đã Kết Thúc',
+        label: 'Completed',
         badgeColor: '#6b7280',
         bgColor: '#6b728018',
         borderColor: '#6b728040',
@@ -292,7 +330,7 @@ export default function TournamentsScreen() {
     }
 
     return {
-      label: code || 'Chưa Xác Định',
+      label: code || 'Unknown',
       badgeColor: colors.textSecondary,
       bgColor: colors.border,
       borderColor: colors.border,
@@ -491,9 +529,9 @@ export default function TournamentsScreen() {
                   {openTournamentsFiltered.length === 0 ? (
                     <View style={styles.emptyContainer}>
                       <MaterialCommunityIcons name="calendar-remove-outline" size={60} color={colors.border} />
-                      <Text style={[styles.emptyText, { color: colors.text }]}>Không có giải đấu khả dụng</Text>
+                      <Text style={[styles.emptyText, { color: colors.text }]}>No tournaments available</Text>
                       <Text style={[styles.emptySubText, { color: colors.textSecondary }]}>
-                        Hiện tại chưa có giải đấu nào được công bố hoặc mở đăng ký. Vui lòng quay lại sau!
+                        No tournaments have been published or opened for registration yet. Please check again later.
                       </Text>
                     </View>
                   ) : (
@@ -516,7 +554,7 @@ export default function TournamentsScreen() {
                               <View style={styles.cardBannerOverlay} />
                               <View style={styles.cardCapacityBadge}>
                                 <Text style={styles.cardCapacityBadgeText}>
-                                  👥 {regCount} / {maxCap} thí sinh
+                                  👥 {regCount} / {maxCap} competitors
                                 </Text>
                               </View>
                             </View>
@@ -542,13 +580,13 @@ export default function TournamentsScreen() {
                             <View style={styles.detailItem}>
                               <MaterialCommunityIcons name="map-marker-outline" size={14} color={colors.textSecondary} />
                               <Text style={[styles.detailText, { color: colors.textSecondary }]} numberOfLines={1}>
-                                {tour.location || 'TP. Hồ Chí Minh, Việt Nam'}
+                                {tour.location || 'Ho Chi Minh City, Vietnam'}
                               </Text>
                             </View>
                             <View style={[styles.detailItem, { width: '100%', marginTop: 2 }]}>
                               <MaterialCommunityIcons name="account-group-outline" size={14} color={colors.accent} />
                               <Text style={[styles.detailText, { color: colors.accent, fontWeight: '700' }]}>
-                                Đã đăng ký: {regCount} / {maxCap} thí sinh ({fillPct}%)
+                                Registered: {regCount} / {maxCap} competitors ({fillPct}%)
                               </Text>
                             </View>
                             {/* Capacity Bar */}
@@ -585,7 +623,7 @@ export default function TournamentsScreen() {
                                 color={canRegister ? "#fff" : colors.text}
                               />
                               <Text style={[styles.actionBtnText, { color: canRegister ? '#fff' : colors.text }]}>
-                                {canRegister ? "Xem Chi Tiết & Đăng Ký" : "Xem Chi Tiết Giải Đấu"}
+                                {canRegister ? "View Details & Register" : "View Tournament Details"}
                               </Text>
                             </TouchableOpacity>
                           </View>
@@ -680,6 +718,16 @@ export default function TournamentsScreen() {
           )}
         </ScrollView>
 
+        {accessToken && faceSession ? (
+          <FaceCheckInModal
+            visible
+            token={accessToken}
+            session={faceSession}
+            onVerified={handleFaceVerified}
+            onCancel={handleFaceCancelled}
+          />
+        ) : null}
+
         {/* QR Code Ticket Modal */}
         <Modal
           visible={showQrModal}
@@ -714,7 +762,7 @@ export default function TournamentsScreen() {
 
                   <View style={styles.qrContainer}>
                     <Image
-                      source={{ uri: `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(selectedReg.qrToken)}` }}
+                      source={{ uri: `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(selectedReg.qrToken ?? '')}` }}
                       style={styles.qrImage}
                       resizeMode="contain"
                     />
@@ -784,7 +832,7 @@ export default function TournamentsScreen() {
                               <View style={[styles.assignmentPendingContainer, { borderTopColor: colors.border }]}>
                                 <MaterialCommunityIcons name="help-circle-outline" size={14} color={colors.textSecondary} />
                                 <Text style={[styles.assignmentPendingText, { color: colors.textSecondary }]}>
-                                  Ban Tổ Chức chưa phân nhóm thi đấu
+                                  The organizer has not assigned competition groups yet
                                 </Text>
                               </View>
                             );
@@ -837,9 +885,9 @@ export default function TournamentsScreen() {
                                       {/* Round header */}
                                       <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
                                         <Text style={{ fontSize: 12, fontWeight: '800', color: isCompleted ? colors.textSecondary : colors.text }}>
-                                          Vòng {a.roundNumber}
-                                          {isCurrentActive && isOngoing ? '  ĐANG THI' : ''}
-                                          {isCurrentActive && isPending ? '  SẮP BẮT ĐẦU' : ''}
+                                          Round {a.roundNumber}
+                                          {isCurrentActive && isOngoing ? '  IN PROGRESS' : ''}
+                                          {isCurrentActive && isPending ? '  STARTING SOON' : ''}
                                         </Text>
                                         <View style={{
                                           paddingHorizontal: 7, paddingVertical: 2, borderRadius: 5,
@@ -853,7 +901,7 @@ export default function TournamentsScreen() {
                                             fontSize: 9, fontWeight: '800',
                                             color: isCompleted ? colors.textSecondary : isOngoing ? colors.success : colors.accent,
                                           }}>
-                                            {isCompleted ? 'HOÀN THÀNH' : isOngoing ? 'ĐANG THI' : 'CHUẨN BỊ'}
+                                            {isCompleted ? 'COMPLETED' : isOngoing ? 'IN PROGRESS' : 'PREPARING'}
                                           </Text>
                                         </View>
                                       </View>
@@ -869,7 +917,7 @@ export default function TournamentsScreen() {
                                         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
                                           <MaterialCommunityIcons name="seat" size={13} color={isCompleted ? colors.textSecondary : colors.primary} />
                                           <Text style={{ fontSize: 11, color: isCompleted ? colors.textSecondary : colors.text, fontWeight: '600' }}>
-                                            Bàn thi: {a.stationNumber ?? 'TBD'}
+                                            Station: {a.stationNumber ?? 'TBD'}
                                           </Text>
                                         </View>
                                       </View>
@@ -877,7 +925,7 @@ export default function TournamentsScreen() {
                                       {/* Eliminated note */}
                                       {isLast && isCompleted && (
                                         <Text style={{ fontSize: 10, color: '#f59e0b', marginTop: 4, fontWeight: '600' }}>
-                                          Kết thúc hành trình tại vòng này
+                                          Journey ends at this round
                                         </Text>
                                       )}
                                     </View>
@@ -949,7 +997,7 @@ export default function TournamentsScreen() {
                     <View style={styles.detailMetaRow}>
                       <MaterialCommunityIcons name="map-marker" size={16} color={colors.primary} />
                       <Text style={[styles.detailMetaText, { color: colors.textSecondary }]}>
-                        {selectedTour.location || 'TP. Hồ Chí Minh, Việt Nam'}
+                        {selectedTour.location || 'Ho Chi Minh City, Vietnam'}
                       </Text>
                     </View>
 
@@ -963,14 +1011,14 @@ export default function TournamentsScreen() {
                     <View style={styles.detailMetaRow}>
                       <MaterialCommunityIcons name="account-group" size={16} color={colors.accent} />
                       <Text style={[styles.detailMetaText, { color: colors.accent, fontWeight: '700' }]}>
-                        Sức chứa tối đa: {selectedTour.maxParticipants || 40} thí sinh
+                        Maximum capacity: {selectedTour.maxParticipants || 40} competitors
                       </Text>
                     </View>
 
                     <View style={styles.detailMetaRow}>
                       <MaterialCommunityIcons name="clock-outline" size={16} color={colors.primary} />
                       <Text style={[styles.detailMetaText, { color: colors.textSecondary }]}>
-                        Mở Đăng Ký: {formatDates(selectedTour.registrationOpenAt, selectedTour.registrationCloseAt)}
+                        Registration: {formatDates(selectedTour.registrationOpenAt, selectedTour.registrationCloseAt)}
                       </Text>
                     </View>
 
@@ -1033,7 +1081,7 @@ export default function TournamentsScreen() {
                     {getRegistrationForTournament(selectedTour.id) ? (
                       <View style={[styles.submitRegisterBtn, { backgroundColor: colors.backgroundSelected, borderWidth: 1, borderColor: colors.border }]}>
                         <MaterialCommunityIcons name="check-decagram" size={18} color={colors.success} />
-                        <Text style={[styles.submitRegisterBtnText, { color: colors.text }]}>Bạn Đã Đăng Ký Giải Này</Text>
+                        <Text style={[styles.submitRegisterBtnText, { color: colors.text }]}>You Are Registered</Text>
                       </View>
                     ) : isTourOpenForRegistration(selectedTour) ? (
                       <TouchableOpacity
@@ -1046,7 +1094,7 @@ export default function TournamentsScreen() {
                         ) : (
                           <>
                             <MaterialCommunityIcons name="check-bold" size={18} color="#fff" />
-                            <Text style={styles.submitRegisterBtnText}>Xác Nhận Đăng Ký</Text>
+                            <Text style={styles.submitRegisterBtnText}>Confirm Registration</Text>
                           </>
                         )}
                       </TouchableOpacity>
@@ -1058,9 +1106,9 @@ export default function TournamentsScreen() {
                             const now = new Date();
                             const openAt = selectedTour.registrationOpenAt ? new Date(selectedTour.registrationOpenAt) : null;
                             if (openAt && now < openAt) {
-                              return 'Chưa Đến Giờ Mở Đăng Ký';
+                              return 'Registration Has Not Opened';
                             }
-                            return 'Cổng Đăng Ký Đang Đóng';
+                            return 'Registration Is Closed';
                           })()}
                         </Text>
                       </View>

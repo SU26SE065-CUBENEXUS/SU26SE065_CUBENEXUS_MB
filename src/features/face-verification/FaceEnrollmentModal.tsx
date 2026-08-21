@@ -44,7 +44,7 @@ export default function FaceEnrollmentModal({
   const cameraRef = useRef<CameraView>(null);
   const [permission, requestPermission] = useCameraPermissions();
   const [phase, setPhase] = useState<Phase>('LOADING');
-  const [statusText, setStatusText] = useState('Đang chuẩn bị...');
+  const [statusText, setStatusText] = useState('Preparing...');
   const [session, setSession] = useState<FaceSessionStartDto | null>(null);
   const [capturedCount, setCapturedCount] = useState(0);
   const [cameraReady, setCameraReady] = useState(false);
@@ -75,7 +75,7 @@ export default function FaceEnrollmentModal({
 
   const reset = useCallback(() => {
     setPhase('LOADING');
-    setStatusText(isUpdate ? 'Đang chuẩn bị cập nhật...' : 'Đang chuẩn bị...');
+    setStatusText(isUpdate ? 'Preparing update...' : 'Preparing...');
     setSession(null);
     setCapturedCount(0);
     setCameraReady(false);
@@ -96,15 +96,15 @@ export default function FaceEnrollmentModal({
           await requestPermission();
         }
         setPhase('LOADING');
-        setStatusText('Tạo phiên...');
+        setStatusText('Creating session...');
         const started = await startFaceEnrollmentSession(token);
         if (cancelled) return;
         setSession(started);
         setPhase('POSITIONING');
-        setStatusText('Nhìn thẳng khung oval → Bắt đầu');
+        setStatusText('Look straight at the oval → Start');
       } catch (err: any) {
         if (cancelled) return;
-        const message = err?.message || 'Không tạo được phiên';
+        const message = err?.message || 'Unable to create session';
         setPhase('FAILED');
         setStatusText(message);
         onCloseRef.current(message);
@@ -129,7 +129,7 @@ export default function FaceEnrollmentModal({
   const runEnrollment = useCallback(async () => {
     if (!session || busyRef.current || phase === 'SUBMITTING') return;
     if (!cameraReady) {
-      setStatusText('Camera chưa sẵn sàng...');
+      setStatusText('Camera is not ready...');
       return;
     }
     busyRef.current = true;
@@ -139,16 +139,16 @@ export default function FaceEnrollmentModal({
       const uris: string[] = [];
       const captureStart = Date.now();
       for (let i = 0; i < ENROLL_IMAGE_COUNT; i += 1) {
-        setStatusText(`Chụp ${i + 1}/${ENROLL_IMAGE_COUNT}`);
+        setStatusText(`Capturing ${i + 1}/${ENROLL_IMAGE_COUNT}`);
         const uri = await captureOne();
-        if (!uri) throw new Error('Không chụp được ảnh');
+        if (!uri) throw new Error('Unable to capture photo');
         uris.push(uri);
         setCapturedCount(uris.length);
       }
       const captureMs = Date.now() - captureStart;
 
       setPhase('SUBMITTING');
-      setStatusText(isUpdate ? 'Đang cập nhật...' : 'Đang gửi...');
+      setStatusText(isUpdate ? 'Updating...' : 'Uploading...');
       const submitStart = Date.now();
       const result = await submitFaceEnrollmentEvidence(
         session.sessionId,
@@ -157,18 +157,18 @@ export default function FaceEnrollmentModal({
         null
       );
       setTiming(
-        `chụp ${captureMs} ms · gửi+AI ${Date.now() - submitStart} ms` +
+        `capture ${captureMs} ms · upload+AI ${Date.now() - submitStart} ms` +
           (pictureSize ? ` · ${pictureSize}` : '')
       );
       if (result.state === 'ENROLLED') {
         setPhase('DONE');
-        setStatusText(isUpdate ? 'Cập nhật thành công' : 'VERIFIED — đăng ký thành công');
+        setStatusText(isUpdate ? 'Update successful' : 'VERIFIED — enrollment successful');
         onEnrolled();
         return;
       }
       throw new Error(result.failureReason || result.result?.reason || `Failed (${result.state})`);
     } catch (err: any) {
-      const message = err?.message || 'Đăng ký thất bại';
+      const message = err?.message || 'Enrollment failed';
       setPhase('FAILED');
       setStatusText(message);
       setCapturedCount(0);
@@ -183,8 +183,8 @@ export default function FaceEnrollmentModal({
     <Modal visible={visible} animationType="fade" presentationStyle="fullScreen">
       <View style={styles.container}>
         <View style={styles.header}>
-          <Text style={styles.title}>{isUpdate ? 'Cập nhật Face ID' : 'Đăng ký Face ID'}</Text>
-          <Text style={styles.subtitle}>Chụp 3 ảnh — xử lý nhanh</Text>
+          <Text style={styles.title}>{isUpdate ? 'Update Face ID' : 'Enroll Face ID'}</Text>
+          <Text style={styles.subtitle}>Capture 3 photos — fast processing</Text>
         </View>
 
         <View
@@ -205,9 +205,9 @@ export default function FaceEnrollmentModal({
             />
           ) : (
             <View style={styles.permissionBox}>
-              <Text style={styles.permissionText}>Cần quyền camera</Text>
+              <Text style={styles.permissionText}>Camera permission is required</Text>
               <TouchableOpacity style={styles.primaryBtn} onPress={requestPermission}>
-                <Text style={styles.primaryBtnText}>Cấp quyền</Text>
+                <Text style={styles.primaryBtnText}>Grant Permission</Text>
               </TouchableOpacity>
             </View>
           )}
@@ -230,8 +230,8 @@ export default function FaceEnrollmentModal({
         {timing ? <Text style={styles.meta}>{timing}</Text> : null}
 
         <View style={styles.hintBox}>
-          <Text style={styles.hint}>• Đủ sáng, nhìn thẳng, không kính tối</Text>
-          <Text style={styles.hint}>• Không quay video — chỉ 3 ảnh nhanh</Text>
+          <Text style={styles.hint}>• Use good lighting, look straight, avoid dark glasses</Text>
+          <Text style={styles.hint}>• Do not record video — only 3 quick photos</Text>
         </View>
 
         <View style={styles.actions}>
@@ -239,7 +239,7 @@ export default function FaceEnrollmentModal({
             <TouchableOpacity style={styles.primaryBtn} onPress={runEnrollment}>
               <MaterialCommunityIcons name="camera" size={18} color="#fff" />
               <Text style={styles.primaryBtnText}>
-                {isUpdate ? 'Chụp & cập nhật' : 'Chụp & đăng ký'}
+                {isUpdate ? 'Capture & Update' : 'Capture & Enroll'}
               </Text>
             </TouchableOpacity>
           ) : null}
@@ -254,7 +254,7 @@ export default function FaceEnrollmentModal({
           {(phase === 'LOADING' || phase === 'CAPTURING' || phase === 'SUBMITTING') && (
             <View style={styles.loadingRow}>
               <ActivityIndicator color="#10b981" />
-              <Text style={styles.meta}>{phase === 'SUBMITTING' ? 'AI đang xử lý...' : 'Đang chụp...'}</Text>
+              <Text style={styles.meta}>{phase === 'SUBMITTING' ? 'AI is processing...' : 'Capturing...'}</Text>
             </View>
           )}
 
@@ -263,7 +263,7 @@ export default function FaceEnrollmentModal({
             onPress={() => onClose()}
             disabled={phase === 'SUBMITTING' || phase === 'CAPTURING'}
           >
-            <Text style={styles.cancelText}>{phase === 'DONE' ? 'Đóng' : 'Hủy'}</Text>
+            <Text style={styles.cancelText}>{phase === 'DONE' ? 'Close' : 'Cancel'}</Text>
           </TouchableOpacity>
         </View>
       </View>

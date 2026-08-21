@@ -312,6 +312,36 @@ export async function startCheckInFaceSession(qrToken: string, token: string): P
   });
 }
 
+/** Competitor: validate own registration/tournament, then start the QR Face Gate. */
+export async function startCompetitorCheckInFaceSession(
+  tournamentId: string,
+  token: string
+): Promise<FaceSessionStartDto> {
+  return apiFetch<FaceSessionStartDto>('/api/face-verification/competitor/check-in/sessions', token, {
+    method: 'POST',
+    body: JSON.stringify({ tournamentId }),
+  });
+}
+
+export interface CompetitorQrTicketDto {
+  registrationId: string;
+  qrToken: string;
+  checkedInAt?: string | null;
+  statusCode: string;
+}
+
+/** Returns the QR token only after the matching Face Verification session passed. */
+export async function getCompetitorQrTicket(
+  tournamentId: string,
+  faceVerificationSessionId: string,
+  token: string
+): Promise<CompetitorQrTicketDto> {
+  return apiFetch<CompetitorQrTicketDto>(
+    `/api/tournament-operation/competitor/qr-ticket?tournamentId=${encodeURIComponent(tournamentId)}&faceVerificationSessionId=${encodeURIComponent(faceVerificationSessionId)}`,
+    token
+  );
+}
+
 /** Competitor self-test: match live face against enrolled Face ID template. */
 export async function startFaceSelfTestSession(token: string): Promise<FaceSessionStartDto> {
   return apiFetch<FaceSessionStartDto>('/api/face-verification/self-test/sessions', token, {

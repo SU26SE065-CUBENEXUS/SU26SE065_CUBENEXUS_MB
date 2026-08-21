@@ -253,7 +253,7 @@ export default function FaceMeshOverlay({
             ? 'FACE MESH LOCKED'
             : target.tracking
               ? 'TRACKING FACE…'
-              : 'Tìm khuôn mặt…'}
+              : 'Finding face…'}
         </Text>
       </View>
     </View>

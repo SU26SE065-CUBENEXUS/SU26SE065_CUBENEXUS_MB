@@ -20,7 +20,7 @@ import FaceFittingOval from './FaceFittingOval';
 import { useCompactPictureSize } from './useCompactPictureSize';
 import { useFaceOvalTracking, waitForCameraIdle } from './useFaceOvalTracking';
 
-type Phase = 'POSITIONING' | 'CAPTURING' | 'SUBMITTING' | 'CHALLENGE' | 'DONE' | 'FAILED';
+type Phase = 'POSITIONING' | 'CAPTURING' | 'SUBMITTING' | 'CHALLENGE' | 'RECORDING_CHALLENGE' | 'DONE' | 'FAILED';
 
 interface Props {
   visible: boolean;
@@ -32,6 +32,7 @@ interface Props {
 }
 
 const PASSIVE_FRAME_COUNT = 3;
+const CHALLENGE_DURATION_SECONDS = 5;
 const OVAL_W = 200;
 const OVAL_H = 280;
 
@@ -46,13 +47,15 @@ export default function FaceCheckInModal({
   const cameraRef = useRef<CameraView>(null);
   const [permission, requestPermission] = useCameraPermissions();
   const [phase, setPhase] = useState<Phase>('POSITIONING');
-  const [statusText, setStatusText] = useState('Nhìn thẳng vào camera');
+  const [statusText, setStatusText] = useState('Look straight at the camera');
   const [capturedCount, setCapturedCount] = useState(0);
   const [challengeActions, setChallengeActions] = useState<string[]>(session.challenge?.actions ?? []);
   const [cameraReady, setCameraReady] = useState(false);
   const [viewSize, setViewSize] = useState({ w: 0, h: 0 });
   const [timing, setTiming] = useState<string | null>(null);
   const capturingRef = useRef(false);
+  const cameraReadyRef = useRef(false);
+  const recordingRef = useRef(false);
 
   const pictureSize = useCompactPictureSize(cameraRef, cameraReady);
 
@@ -73,11 +76,20 @@ export default function FaceCheckInModal({
 
   useEffect(() => {
     if (!visible) {
+      if (recordingRef.current) {
+        try {
+          cameraRef.current?.stopRecording?.();
+        } catch {
+          // Camera may already be closing.
+        }
+      }
       setPhase('POSITIONING');
-      setStatusText('Nhìn thẳng vào camera');
+      setStatusText('Look straight at the camera');
       setCapturedCount(0);
       setChallengeActions(session.challenge?.actions ?? []);
       setCameraReady(false);
+      cameraReadyRef.current = false;
+      recordingRef.current = false;
       setTiming(null);
       capturingRef.current = false;
     }
@@ -88,6 +100,18 @@ export default function FaceCheckInModal({
       requestPermission();
     }
   }, [visible, permission?.granted, requestPermission]);
+
+  useEffect(() => {
+    return () => {
+      if (recordingRef.current) {
+        try {
+          cameraRef.current?.stopRecording?.();
+        } catch {
+          // Camera may already be unmounted.
+        }
+      }
+    };
+  }, []);
 
   const handleFailure = useCallback(
     (message: string) => {
@@ -100,19 +124,33 @@ export default function FaceCheckInModal({
     [onCancel]
   );
 
+  const handleCancel = useCallback(() => {
+    if (recordingRef.current) {
+      try {
+        cameraRef.current?.stopRecording?.();
+      } catch {
+        // Camera may already be closing.
+      }
+      recordingRef.current = false;
+    }
+    onCancel('Verification cancelled');
+  }, [onCancel]);
+
   const applyAiStatus = useCallback(
     (result: FaceSessionStatusDto) => {
       if (result.state === 'VERIFIED') {
         setPhase('DONE');
-        setStatusText('Xác minh khuôn mặt thành công');
+        setStatusText('Face verification successful');
         onVerified(result.sessionId);
         return;
       }
       if (result.state === 'CHALLENGE_REQUIRED') {
+        cameraReadyRef.current = false;
+        setCameraReady(false);
         setPhase('CHALLENGE');
         setChallengeActions(result.challenge?.actions?.length ? result.challenge.actions : challengeActions);
         setStatusText(
-          `Cần challenge: ${(result.challenge?.actions ?? challengeActions).join(' → ')}`
+          `Challenge required: ${(result.challenge?.actions ?? challengeActions).join(' → ')}`
         );
         setCapturedCount(0);
         return;
@@ -132,10 +170,20 @@ export default function FaceCheckInModal({
     return photo?.uri ?? null;
   }, []);
 
+  const waitForCameraReady = useCallback(async () => {
+    const deadline = Date.now() + 2500;
+    while (!cameraReadyRef.current && Date.now() < deadline) {
+      await new Promise(resolve => setTimeout(resolve, 50));
+    }
+    if (!cameraReadyRef.current) {
+      throw new Error('Camera did not become ready after switching mode');
+    }
+  }, []);
+
   const runPassiveCapture = useCallback(async () => {
     if (capturingRef.current || phase === 'SUBMITTING') return;
     if (!cameraReady) {
-      setStatusText('Camera chưa sẵn sàng, đợi rồi thử lại...');
+      setStatusText('Camera is not ready. Wait and try again...');
       return;
     }
     capturingRef.current = true;
@@ -145,20 +193,20 @@ export default function FaceCheckInModal({
     const captureStart = Date.now();
     try {
       for (let i = 0; i < PASSIVE_FRAME_COUNT; i += 1) {
-        setStatusText(`Đang chụp ${i + 1}/${PASSIVE_FRAME_COUNT}`);
+        setStatusText(`Capturing ${i + 1}/${PASSIVE_FRAME_COUNT}`);
         const uri = await captureOne();
-        if (!uri) throw new Error('Không chụp được ảnh khuôn mặt');
+        if (!uri) throw new Error('Unable to capture face photo');
         uris.push(uri);
         setCapturedCount(uris.length);
       }
       const captureMs = Date.now() - captureStart;
 
       setPhase('SUBMITTING');
-      setStatusText('Đang gửi ảnh xác minh...');
+      setStatusText('Uploading verification photos...');
       const submitStart = Date.now();
       const result = await submitFacePassiveEvidence(session.sessionId, token, uris);
       setTiming(
-        `chụp ${captureMs} ms · gửi+AI ${Date.now() - submitStart} ms` +
+        `capture ${captureMs} ms · upload+AI ${Date.now() - submitStart} ms` +
           (pictureSize ? ` · ${pictureSize}` : '')
       );
       applyAiStatus(result);
@@ -172,55 +220,73 @@ export default function FaceCheckInModal({
   const runActiveChallenge = useCallback(async () => {
     if (capturingRef.current) return;
     capturingRef.current = true;
-    setPhase('CAPTURING');
+    setPhase('RECORDING_CHALLENGE');
+    recordingRef.current = true;
     try {
-      setStatusText(`Thực hiện: ${challengeActions.join(' → ')}`);
-      setCameraReady(false);
-      await new Promise(resolve => setTimeout(resolve, 450));
+      setStatusText(
+        `Recording challenge automatically for ${CHALLENGE_DURATION_SECONDS}s: ${challengeActions.join(' → ')}`
+      );
 
       let videoUri: string | null = null;
-      if (cameraRef.current?.recordAsync) {
-        const recordPromise = cameraRef.current.recordAsync({ maxDuration: 5 });
-        await new Promise(resolve => setTimeout(resolve, 3500));
-        try {
-          cameraRef.current.stopRecording?.();
-        } catch {
-          // ignore
-        }
-        const recorded = await recordPromise;
+      if (!cameraRef.current?.recordAsync) {
+        throw new Error('Video recording is not available on this device');
+      }
+
+      const recorded = await cameraRef.current.recordAsync({
+        maxDuration: CHALLENGE_DURATION_SECONDS,
+      });
+      recordingRef.current = false;
+      if (recorded) {
         videoUri = recorded?.uri ?? null;
       }
+      if (!videoUri) {
+        throw new Error('Challenge recording was not created');
+      }
+
+      cameraReadyRef.current = false;
+      setCameraReady(false);
+      setPhase('CAPTURING');
+      setStatusText('Capturing final challenge frames...');
+      await waitForCameraReady();
 
       const uris: string[] = [];
       for (let i = 0; i < 2; i += 1) {
         const uri = await captureOne();
         if (uri) uris.push(uri);
       }
-      if (uris.length < 1) throw new Error('Thiếu ảnh final frames sau challenge');
+      if (uris.length < 1) throw new Error('Final challenge frames are missing');
 
       setPhase('SUBMITTING');
-      setStatusText('Đang gửi bằng chứng challenge...');
+      setStatusText('Uploading challenge evidence...');
       const result = await submitFaceActiveEvidence(session.sessionId, token, uris, videoUri);
       applyAiStatus(result);
     } catch (err: any) {
       handleFailure(err?.message || 'Active challenge failed');
     } finally {
+      recordingRef.current = false;
       capturingRef.current = false;
     }
-  }, [applyAiStatus, captureOne, challengeActions, handleFailure, session.sessionId, token]);
+  }, [applyAiStatus, captureOne, challengeActions, handleFailure, session.sessionId, token, waitForCameraReady]);
+
+  // A challenge is server-triggered. The competitor cannot manually start or stop it.
+  useEffect(() => {
+    if (visible && phase === 'CHALLENGE' && cameraReady) {
+      void runActiveChallenge();
+    }
+  }, [visible, phase, cameraReady, runActiveChallenge]);
 
   return (
     <Modal visible={visible} animationType="slide" presentationStyle="fullScreen">
       <View style={styles.container}>
         <View style={styles.header}>
           <Text style={styles.title}>
-            {mode === 'self-test' ? 'Thử xác minh Face ID' : 'Xác minh khuôn mặt'}
+            {mode === 'self-test' ? 'Test Face ID' : 'Face Verification'}
           </Text>
           <Text style={styles.subtitle}>{session.playerName || 'Competitor'}</Text>
           <Text style={styles.note}>
             {mode === 'self-test'
-              ? 'Đối chiếu khuôn mặt hiện tại với template Face ID đã đăng ký — không ghi đè template'
-              : 'Chỉ đối chiếu template đã đăng ký sẵn — không phải đăng ký Face ID mới'}
+              ? 'Compare the live face with the enrolled Face ID template — the template will not be replaced'
+              : 'Compare against the existing enrolled template only — this does not enroll a new Face ID'}
           </Text>
         </View>
 
@@ -236,15 +302,18 @@ export default function FaceCheckInModal({
               ref={cameraRef}
               style={StyleSheet.absoluteFill}
               facing="front"
-              mode={phase === 'CHALLENGE' ? 'video' : 'picture'}
+              mode={phase === 'CHALLENGE' || phase === 'RECORDING_CHALLENGE' ? 'video' : 'picture'}
               pictureSize={pictureSize}
-              onCameraReady={() => setCameraReady(true)}
+              onCameraReady={() => {
+                cameraReadyRef.current = true;
+                setCameraReady(true);
+              }}
             />
           ) : (
             <View style={styles.permissionBox}>
-              <Text style={styles.permissionText}>Cần quyền camera để xác minh khuôn mặt</Text>
+              <Text style={styles.permissionText}>Camera permission is required for face verification</Text>
               <TouchableOpacity style={styles.primaryBtn} onPress={requestPermission}>
-                <Text style={styles.primaryBtnText}>Cấp quyền</Text>
+                <Text style={styles.primaryBtnText}>Grant Permission</Text>
               </TouchableOpacity>
             </View>
           )}
@@ -270,30 +339,23 @@ export default function FaceCheckInModal({
           {phase === 'POSITIONING' ? (
             <TouchableOpacity style={styles.primaryBtn} onPress={runPassiveCapture}>
               <MaterialCommunityIcons name="face-recognition" size={18} color="#fff" />
-              <Text style={styles.primaryBtnText}>Bắt đầu xác minh</Text>
+              <Text style={styles.primaryBtnText}>Start Verification</Text>
             </TouchableOpacity>
           ) : null}
 
-          {phase === 'CHALLENGE' ? (
-            <TouchableOpacity style={styles.primaryBtn} onPress={runActiveChallenge}>
-              <MaterialCommunityIcons name="motion-play-outline" size={18} color="#fff" />
-              <Text style={styles.primaryBtnText}>Quay challenge</Text>
-            </TouchableOpacity>
-          ) : null}
-
-          {(phase === 'CAPTURING' || phase === 'SUBMITTING') && (
+          {(phase === 'CHALLENGE' || phase === 'RECORDING_CHALLENGE' || phase === 'CAPTURING' || phase === 'SUBMITTING') && (
             <View style={styles.loadingRow}>
               <ActivityIndicator color="#10b981" />
-              <Text style={styles.meta}>Đang xử lý...</Text>
+              <Text style={styles.meta}>Processing...</Text>
             </View>
           )}
 
           <TouchableOpacity
             style={styles.cancelBtn}
-            onPress={() => onCancel('Đã hủy xác minh khuôn mặt')}
+            onPress={handleCancel}
             disabled={phase === 'SUBMITTING'}
           >
-            <Text style={styles.cancelText}>Hủy</Text>
+            <Text style={styles.cancelText}>Cancel</Text>
           </TouchableOpacity>
         </View>
       </View>

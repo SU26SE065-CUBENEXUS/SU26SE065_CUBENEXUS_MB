@@ -63,11 +63,11 @@ export function useFaceOvalTracking(opts: {
           const hint = onHintRef.current;
           if (hint) {
             if (result.status === 'QUALITY_READY') {
-              hint('Khuôn mặt OK — oval đã khớp mặt');
+              hint('Face detected — oval aligned');
             } else if (hasFace) {
-              hint(result.reason || 'Đưa mặt vào giữa, giữ ổn định');
+              hint(result.reason || 'Center your face and hold still');
             } else {
-              hint('Chưa thấy mặt — nhìn thẳng camera');
+              hint('No face detected — look at the camera');
             }
           }
         }

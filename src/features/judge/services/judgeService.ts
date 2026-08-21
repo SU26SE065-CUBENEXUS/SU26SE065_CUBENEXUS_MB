@@ -10,10 +10,10 @@ import {
   getTournamentById,
   getTournamentCheckInRoster,
   startCheckInFaceSession,
+  type FaceSessionStartDto,
   submitMedleyResult,
   submitTraditionalResult,
   verifyJudgeStation,
-  type FaceSessionStartDto,
 } from '@/constants/api';
 import {
   CheckInRecord,
@@ -495,8 +495,8 @@ export function useJudgeStationQueue(token: string | null) {
           success: false,
           errorCode: res.errorCode || '',
           message: res.message?.includes('Group')
-            ? 'Không tìm thấy nhóm thi đấu của thí sinh trong vòng này.'
-            : res.message || 'Xác nhận không thành công.',
+            ? 'No competitor group was found for this round.'
+            : res.message || 'Verification was unsuccessful.',
         };
       }
 
@@ -608,6 +608,35 @@ export function useCheckInDesk(token: string | null) {
     loadRegistrations();
   }, [loadRegistrations]);
 
+  const completeDeskCheckIn = async (qrToken: string): Promise<void> => {
+    if (!token) return;
+    try {
+      const res = await checkInRegistration(qrToken, token);
+      const record: CheckInRecord = {
+        registrationId: res.registrationId,
+        competitorName: res.playerName || '-',
+        checkedInAt: res.checkedInAt || new Date().toISOString(),
+        statusCode: res.alreadyCheckedIn ? 'ALREADY_CHECKED_IN' : 'CHECKED_IN',
+        qrToken,
+      };
+      addCheckInRecord(record);
+      setRecentHistory([...getLocalCheckInHistory()]);
+      setCheckedInIds(prev => new Set([...prev, res.registrationId]));
+      setLastResult({
+        success: true,
+        isAlreadyCheckedIn: res.alreadyCheckedIn,
+        message: res.alreadyCheckedIn
+          ? `${res.playerName || 'Competitor'} was already checked in.`
+          : res.message || 'Check-in successful.',
+        record,
+      });
+    } catch (err: any) {
+      setLastResult({ success: false, message: err.message || 'Check-in failed.' });
+    } finally {
+      setIsScanning(false);
+    }
+  };
+
   const performCheckIn = async (rawScannedData: string): Promise<void> => {
     if (!token) {
       setLastResult({ success: false, message: 'Authorization required. Please log in again.' });
@@ -626,16 +655,19 @@ export function useCheckInDesk(token: string | null) {
       // Keep raw token as-is
     }
 
+    await completeDeskCheckIn(qrToken);
+    return;
+
     try {
       // Step 1: create face verification session for this QR / competitor
-      const faceSession = await startCheckInFaceSession(qrToken, token);
+      const faceSession = await startCheckInFaceSession(qrToken, token!);
       setPendingFace({ qrToken, session: faceSession });
     } catch (err: any) {
       const code = err?.errorCode;
       const message =
         code === 'FACE_NOT_ENROLLED'
-          ? (err.message || 'Thí sinh chưa đăng ký Face ID trên Profile. Judge không đăng ký giúp được.')
-          : (err.message || 'Không tạo được phiên xác minh khuôn mặt.');
+          ? (err.message || 'The competitor has not enrolled Face ID in Profile. Judges cannot enroll it for them.')
+          : (err.message || 'Unable to create the face verification session.');
       setLastResult({
         success: false,
         message,

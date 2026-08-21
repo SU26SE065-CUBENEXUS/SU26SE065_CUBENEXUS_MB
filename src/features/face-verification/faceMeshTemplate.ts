@@ -1,4 +1,4 @@
-/** Normalized face mesh template (0..1 inside face bbox) — warped realtime theo bbox từ AI. */
+/** Normalized face mesh template (0..1 inside face bbox), warped in realtime using the AI bbox. */
 
 export type MeshPoint = { x: number; y: number };
 

@@ -47,16 +47,16 @@ export default function JudgeDutySelection({ onSelectDuty, onLogout }: Props) {
               <MaterialCommunityIcons name="trophy-award" size={22} color={colors.primary} />
             </View>
             <View style={{ flex: 1 }}>
-              <Text style={[styles.tournamentLabel, { color: colors.primary }]}>GIẢI ĐẤU ĐƯỢC PHÂN CÔNG</Text>
+              <Text style={[styles.tournamentLabel, { color: colors.primary }]}>ASSIGNED TOURNAMENT</Text>
               <Text style={[styles.tournamentName, { color: colors.text }]} numberOfLines={1}>
-                {user?.assignedTournamentName || 'Chưa chọn giải đấu'}
+                {user?.assignedTournamentName || 'No tournament selected'}
               </Text>
             </View>
           </View>
 
-          <Text style={[styles.title, { color: colors.text }]}>Chọn Nhiệm Vụ Trọng Tài</Text>
+          <Text style={[styles.title, { color: colors.text }]}>Select Judge Duty</Text>
           <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
-            Xin chào {user?.displayName || 'Trọng tài'}! Nhiệm vụ chính: <Text style={{ color: colors.primary, fontWeight: '800' }}>{user?.judgeRoleCode === 'CHECKIN_JUDGE' ? 'Trọng tài Check-in' : user?.judgeRoleCode === 'STATION_JUDGE' ? 'Trọng tài Bàn thi' : (user?.role || 'JUDGE')}</Text>.
+            Hello {user?.displayName || 'Judge'}! Primary duty: <Text style={{ color: colors.primary, fontWeight: '800' }}>{user?.judgeRoleCode === 'CHECKIN_JUDGE' ? 'Check-in Judge' : user?.judgeRoleCode === 'STATION_JUDGE' ? 'Station Judge' : (user?.role || 'JUDGE')}</Text>.
           </Text>
 
           {/* Check-in Desk Card */}
@@ -69,10 +69,10 @@ export default function JudgeDutySelection({ onSelectDuty, onLogout }: Props) {
               <MaterialCommunityIcons name="account-check-outline" size={32} color="#10b981" />
             </View>
             <View style={styles.dutyText}>
-              <Text style={[styles.dutyTitle, { color: colors.text }]}>Quầy Điểm Danh & Đón Tiếp</Text>
+              <Text style={[styles.dutyTitle, { color: colors.text }]}>Check-in & Reception Desk</Text>
               <Text style={[styles.dutyDesc, { color: colors.textSecondary }]}>
-                Quét mã QR vé thi đấu của thí sinh tại quầy đón tiếp.{'\n'}
-                Đánh dấu thí sinh đã có mặt điểm danh tham gia giải.
+                Scan a competitor's tournament QR ticket at the reception desk.{ '\n' }
+                Mark competitors as present for the tournament.
               </Text>
             </View>
             <MaterialCommunityIcons name="chevron-right" size={22} color={colors.border} />
@@ -88,10 +88,10 @@ export default function JudgeDutySelection({ onSelectDuty, onLogout }: Props) {
               <MaterialCommunityIcons name="timer-check-outline" size={32} color={colors.primary} />
             </View>
             <View style={styles.dutyText}>
-              <Text style={[styles.dutyTitle, { color: colors.text }]}>Trọng Tài Bàn Thi Đấu</Text>
+              <Text style={[styles.dutyTitle, { color: colors.text }]}>Station Judge</Text>
               <Text style={[styles.dutyDesc, { color: colors.textSecondary }]}>
-                Xác nhận thí sinh tại bàn thi, xem danh sách lượt thi,{'\n'}
-                chụp ảnh tờ ghi điểm và ghi nhận kết quả lượt thi.
+                Verify competitors at the station, view attempt lists,{'\n'}
+                photograph score sheets and record attempt results.
               </Text>
             </View>
             <MaterialCommunityIcons name="chevron-right" size={22} color={colors.primary} />
@@ -102,7 +102,7 @@ export default function JudgeDutySelection({ onSelectDuty, onLogout }: Props) {
         <View style={styles.footer}>
           <MaterialCommunityIcons name="information-outline" size={12} color={colors.textSecondary} />
           <Text style={[styles.footerText, { color: colors.textSecondary }]}>
-            Bạn có thể đổi nhiệm vụ bất cứ lúc nào trong cài đặt ứng dụng.
+            You can change your duty at any time in the app settings.
           </Text>
         </View>
       </SafeAreaView>
