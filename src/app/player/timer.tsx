@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { StyleSheet, Text, View, TouchableOpacity, FlatList, useColorScheme, StatusBar, Vibration, Image, Modal, Platform, ActivityIndicator, Alert } from 'react-native';
+import { StyleSheet, Text, View, TouchableOpacity, FlatList, ScrollView, useColorScheme, StatusBar, Vibration, Image, Modal, Platform, ActivityIndicator, Alert } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -8,7 +8,9 @@ import { useTheme } from '@/hooks/use-theme';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { useAuth } from '@/contexts/AuthContext';
-import { connectMobileTimer, submitMobileTimerTime, getCurrentPracticeAttempt, finalizePracticeAttempt, createPracticeAttempt, handsOnPracticeAttempt, readyPracticeAttempt, handsOffPracticeAttempt, abortPracticeAttempt, getPracticeSessionDetail, connectPracticeSession } from '@/constants/api';
+import { connectMobileTimer, submitMobileTimerTime, getCurrentPracticeAttempt, finalizePracticeAttempt, createPracticeAttempt, handsOnPracticeAttempt, readyPracticeAttempt, handsOffPracticeAttempt, abortPracticeAttempt, getPracticeSessionDetail, connectPracticeSession, disconnectPracticeSession, apiFetch } from '@/constants/api';
+import { API_BASE_URL } from '@/constants/config';
+import * as signalR from '@microsoft/signalr';
 import * as Device from 'expo-device';
 
 type TimerStatus = 'idle' | 'holding' | 'ready' | 'running' | 'stopped';
@@ -59,6 +61,7 @@ export default function PracticeTimer() {
   // Online Arena / Practice State
   const [isOnlineMode, setIsOnlineMode] = useState(false);
   const [isPracticeMode, setIsPracticeMode] = useState(false); // true = Practice remote, false = PvP Arena
+  const [isFreeMode, setIsFreeMode] = useState(false); // true = Free local practice without Web sync
   const [matchId, setMatchId] = useState('');
   const [deviceSessionToken, setDeviceSessionToken] = useState('');
   const [mobileTimerSessionId, setMobileTimerSessionId] = useState('');
@@ -90,6 +93,9 @@ export default function PracticeTimer() {
   const clearSavedArenaPairing = async () => {
     const userId = user?.id || 'default';
     try {
+      await AsyncStorage.removeItem(`@session_type_${userId}`);
+      await AsyncStorage.removeItem(`@practice_session_id_${userId}`);
+      await AsyncStorage.removeItem(`@practice_qr_${userId}`);
       await AsyncStorage.removeItem(`@arena_pairing_active_${userId}`);
       await AsyncStorage.removeItem(`@arena_match_id_${userId}`);
       await AsyncStorage.removeItem(`@arena_device_session_token_${userId}`);
@@ -100,79 +106,108 @@ export default function PracticeTimer() {
     }
   };
 
-  // Restore Arena pairing on mount (when authenticated)
+  // Restore pairing state on mount (when authenticated)
   useEffect(() => {
     const restoreArenaPairing = async () => {
       if (!accessToken || !user?.id) return;
 
       const userId = user.id;
       const keyActive = `@arena_pairing_active_${userId}`;
-      const keyMatchId = `@arena_match_id_${userId}`;
-      const keyToken = `@arena_device_session_token_${userId}`;
-      const keySessionId = `@arena_mobile_timer_session_id_${userId}`;
+      const keyType = `@session_type_${userId}`;
 
       try {
-        const isActive = await AsyncStorage.getItem(keyActive);
-        if (isActive === 'true') {
-          setHasSavedSession(true);
-          const savedMatchId = await AsyncStorage.getItem(keyMatchId);
-          const savedToken = await AsyncStorage.getItem(keyToken);
-          const savedSessionId = await AsyncStorage.getItem(keySessionId);
+        const savedPracticeId = await AsyncStorage.getItem(`@practice_session_id_${userId}`);
+        const savedArenaToken = await AsyncStorage.getItem(`@arena_device_session_token_${userId}`);
 
-          if (savedMatchId && savedToken && savedSessionId) {
-            console.log('[Mobile Timer] Restoring saved PC Arena connection for user:', userId);
-            setIsConnecting(true);
-            setConnectionError(null);
-
-            try {
-              const devInfo = `${Device.brand || 'Device'} ${Device.modelName || 'Model'} (${Platform.OS})`;
-              const res = await connectMobileTimer({
-                qrSessionCode: savedToken,
-                deviceInfo: devInfo,
-              }, accessToken);
-
-              setMatchId(res.matchId);
-              setDeviceSessionToken(savedToken);
-              setMobileTimerSessionId(res.sessionId);
-              setIsOnlineMode(true);
-              setHasSavedSession(true);
-
-              await AsyncStorage.setItem(keyActive, 'true');
-              await AsyncStorage.setItem(keyMatchId, res.matchId);
-              await AsyncStorage.setItem(keyToken, savedToken);
-              await AsyncStorage.setItem(keySessionId, res.sessionId);
-
-              console.log('[Mobile Timer] Successfully restored saved PC Arena connection!');
-            } catch (err: any) {
-              console.error('[Mobile Timer] Failed to restore saved PC Arena connection:', err);
-
-              if (err.status === 404 || err.status === 400 || err.status === 409 || err.status === 403 || err.status === 401) {
-                console.log('[Mobile Timer] Match is terminal or invalid. Clearing saved pairing.');
+        // Proactively check if savedPracticeId is actually still an open session
+        if (savedPracticeId) {
+          try {
+            const sessions = await apiFetch<any[]>('/api/practice/sessions?page=1&pageSize=1', accessToken);
+            if (sessions && sessions.length > 0) {
+              const latest = sessions[0];
+              if (latest.endedAt || latest.id !== savedPracticeId) {
                 await clearSavedArenaPairing();
                 setHasSavedSession(false);
               } else {
-                setConnectionError('Arena connection lost. Check your internet connection.');
-                setMatchId(savedMatchId);
-                setDeviceSessionToken(savedToken);
-                setMobileTimerSessionId(savedSessionId);
-                setIsOnlineMode(true);
+                setHasSavedSession(true);
               }
+            } else {
+              await clearSavedArenaPairing();
+              setHasSavedSession(false);
+            }
+          } catch (_) {
+            setHasSavedSession(true);
+          }
+        } else if (savedArenaToken) {
+          setHasSavedSession(true);
+        } else {
+          setHasSavedSession(false);
+        }
+
+        const isActive = await AsyncStorage.getItem(keyActive);
+        const sessionType = (await AsyncStorage.getItem(keyType)) || 'practice';
+
+        if (isActive === 'true') {
+          if (sessionType === 'practice' && savedPracticeId) {
+            console.log('[Mobile Timer] Restoring Practice Session:', savedPracticeId);
+            setIsConnecting(true);
+            try {
+              await connectPracticeSession(savedPracticeId, accessToken);
+              try {
+                const details = await getPracticeSessionDetail(savedPracticeId, accessToken);
+                if (details?.solves) setCompletedSolveCount(details.solves.length);
+              } catch (_) {}
+
+              let currentAttempt = await getCurrentPracticeAttempt(savedPracticeId, accessToken);
+              if (!currentAttempt?.id) {
+                currentAttempt = await createPracticeAttempt(savedPracticeId, accessToken);
+              }
+              if (currentAttempt?.id) activeAttemptIdRef.current = currentAttempt.id;
+              if (currentAttempt?.scrambleSequence) setPracticeScramble(currentAttempt.scrambleSequence);
+
+              setMobileTimerSessionId(savedPracticeId);
+              setIsPracticeMode(true);
+              setIsOnlineMode(true);
+              setIsFreeMode(false);
+              setHasSavedSession(true);
+            } catch (err: any) {
+              console.warn('[Mobile Timer] Practice restore failed:', err);
+              await clearSavedArenaPairing();
+              setHasSavedSession(false);
             } finally {
               setIsConnecting(false);
             }
+          } else if (sessionType === 'arena' && savedArenaToken) {
+            const savedMatchId = await AsyncStorage.getItem(`@arena_match_id_${userId}`);
+            const savedSessionId = await AsyncStorage.getItem(`@arena_mobile_timer_session_id_${userId}`);
+
+            if (savedMatchId && savedSessionId) {
+              console.log('[Mobile Timer] Restoring Arena connection for user:', userId);
+              setIsConnecting(true);
+              try {
+                const devInfo = `${Device.brand || 'Device'} ${Device.modelName || 'Model'} (${Platform.OS})`;
+                const res = await connectMobileTimer({
+                  qrSessionCode: savedArenaToken,
+                  deviceInfo: devInfo,
+                }, accessToken);
+
+                setMatchId(res.matchId);
+                setDeviceSessionToken(savedArenaToken);
+                setMobileTimerSessionId(res.sessionId);
+                setIsPracticeMode(false);
+                setIsOnlineMode(true);
+                setIsFreeMode(false);
+                setHasSavedSession(true);
+              } catch (err: any) {
+                console.warn('[Mobile Timer] Arena restore failed:', err);
+                if (err.status === 404 || err.status === 400 || err.status === 409 || err.status === 403 || err.status === 401) {
+                  await clearSavedArenaPairing();
+                }
+              } finally {
+                setIsConnecting(false);
+              }
+            }
           }
-        } else {
-          // If not active, check if a token still exists to show the Pair button as reconnectable
-          const savedToken = await AsyncStorage.getItem(keyToken);
-          if (savedToken) {
-            setHasSavedSession(true);
-          } else {
-            setHasSavedSession(false);
-          }
-          setIsOnlineMode(false);
-          setMatchId('');
-          setDeviceSessionToken('');
-          setMobileTimerSessionId('');
         }
       } catch (e) {
         console.error('[Mobile Timer] Error restoring pairing from AsyncStorage:', e);
@@ -182,6 +217,58 @@ export default function PracticeTimer() {
     restoreArenaPairing();
   }, [accessToken, user?.id]);
 
+  // ── Real-time SignalR Synchronization for Mobile ──
+  useEffect(() => {
+    if (!accessToken) return;
+
+    let isMounted = true;
+    const conn = new signalR.HubConnectionBuilder()
+      .withUrl(`${API_BASE_URL}/hubs/online-arena`, {
+        accessTokenFactory: () => accessToken,
+        headers: {
+          'ngrok-skip-browser-warning': 'true',
+        },
+      })
+      .withAutomaticReconnect([0, 2000, 5000, 10000])
+      .build();
+
+    conn.on('PracticeSessionEnded', async (payload: any) => {
+      console.log('[Mobile SignalR] Practice Session Ended on Web:', payload);
+      await clearSavedArenaPairing();
+      setHasSavedSession(false);
+
+      if (isPracticeMode) {
+        setIsOnlineMode(false);
+        setIsPracticeMode(false);
+        setIsFreeMode(false);
+        setPracticeScramble(null);
+        setMobileTimerSessionId('');
+        setTime(0);
+        Vibration.vibrate([0, 100, 50, 100]);
+        Alert.alert('Session Ended', 'This practice session was ended on Web.');
+      }
+    });
+
+    conn.on('PracticeMobileDisconnected', async (payload: any) => {
+      console.log('[Mobile SignalR] Practice Mobile Disconnected:', payload);
+      await clearSavedArenaPairing();
+      setHasSavedSession(false);
+    });
+
+    conn.start()
+      .then(() => {
+        if (isMounted) console.log('[Mobile SignalR] Connected to online-arena hub');
+      })
+      .catch((err) => {
+        console.warn('[Mobile SignalR] Connection failed:', err);
+      });
+
+    return () => {
+      isMounted = false;
+      conn.stop().catch(() => {});
+    };
+  }, [accessToken, isPracticeMode]);
+
   // Poll practice session to keep scramble in sync with Web
   useEffect(() => {
     if (!isPracticeMode || !mobileTimerSessionId || !accessToken) return;
@@ -190,6 +277,9 @@ export default function PracticeTimer() {
       try {
         const attempt = await getCurrentPracticeAttempt(mobileTimerSessionId, accessToken);
         console.log('[Practice Poll] attempt:', JSON.stringify(attempt));
+        if (attempt?.id && statusRef.current !== 'running' && statusRef.current !== 'stopped') {
+          activeAttemptIdRef.current = attempt.id;
+        }
         // Only update scramble if user is NOT in 'stopped' state (they need to tap first)
         if (attempt && attempt.scrambleSequence && statusRef.current !== 'stopped') {
           setPracticeScramble(attempt.scrambleSequence);
@@ -230,12 +320,20 @@ export default function PracticeTimer() {
       setIsUploading(true);
       try {
         if (isPracticeMode) {
-          // Practice Remote Session Flow: Solving → [hands-on] → Stopped → [finalize]
-          const attemptId = activeAttemptIdRef.current;
-          if (attemptId) {
+          let attemptId = activeAttemptIdRef.current;
+          if (!attemptId && mobileTimerSessionId) {
             try {
-              await handsOnPracticeAttempt(attemptId, accessToken);
+              const curr = await getCurrentPracticeAttempt(mobileTimerSessionId, accessToken);
+              if (curr?.id) {
+                attemptId = curr.id;
+                activeAttemptIdRef.current = curr.id;
+              }
             } catch (_) {}
+          }
+
+          if (attemptId) {
+            // Fire instant stop to server and Web
+            handsOnPracticeAttempt(attemptId, accessToken).catch(() => {});
 
             await finalizePracticeAttempt(attemptId, {
               timeMs: finalTime,
@@ -246,6 +344,8 @@ export default function PracticeTimer() {
             setLastCompletedTime(finalTime);
             setCompletedSolveCount((prev) => prev + 1);
             activeAttemptIdRef.current = null;
+          } else {
+            console.warn('[Mobile Timer] No active attempt ID found to finalize');
           }
         } else {
           // Standard PvP Online Match Flow
@@ -325,8 +425,18 @@ export default function PracticeTimer() {
             activeAttemptIdRef.current = nextAttempt.id;
             console.log('[Mobile Timer] Created & set new scramble after tap:', nextAttempt.scrambleSequence);
           }
-        } catch (err) {
+        } catch (err: any) {
           console.warn('[Mobile Timer] Error creating attempt on tap:', err);
+          if (err.status === 400 || err.status === 404 || err.code === 'SESSION_ENDED') {
+            setIsOnlineMode(false);
+            setIsPracticeMode(false);
+            setIsFreeMode(false);
+            setPracticeScramble(null);
+            setMobileTimerSessionId('');
+            setTime(0);
+            await clearSavedArenaPairing();
+            setConnectionError('This practice session was ended on Web.');
+          }
         } finally {
           isActionLockRef.current = false;
         }
@@ -428,10 +538,18 @@ export default function PracticeTimer() {
         setMobileTimerSessionId(sessionId);
         setIsPracticeMode(true);
         setIsOnlineMode(true);
+        setIsFreeMode(false);
         setShowScanner(false);
         setPracticeScramble(null);
         Vibration.vibrate([0, 100, 50, 100]);
         console.log('[Mobile Practice Timer] Connected to Web Session:', sessionId);
+
+        const userId = user?.id || 'default';
+        await AsyncStorage.setItem(`@session_type_${userId}`, 'practice');
+        await AsyncStorage.setItem(`@practice_session_id_${userId}`, sessionId);
+        await AsyncStorage.setItem(`@practice_qr_${userId}`, scannedCode);
+        await AsyncStorage.setItem(`@arena_pairing_active_${userId}`, 'true');
+        setHasSavedSession(true);
 
         // Notify server & web immediately so web closes the enlarged QR modal instantly!
         if (accessToken) {
@@ -449,11 +567,17 @@ export default function PracticeTimer() {
               setCompletedSolveCount(details.solves.length);
               console.log('[Mobile Practice Timer] Synced solve count:', details.solves.length);
             }
-            // Also set current scramble immediately
-            const currentAttempt = await getCurrentPracticeAttempt(sessionId, accessToken);
+            // Also set current scramble immediately & assign activeAttemptId
+            let currentAttempt = await getCurrentPracticeAttempt(sessionId, accessToken);
+            if (!currentAttempt?.id) {
+              currentAttempt = await createPracticeAttempt(sessionId, accessToken);
+            }
+            if (currentAttempt?.id) {
+              activeAttemptIdRef.current = currentAttempt.id;
+            }
             if (currentAttempt?.scrambleSequence) {
               setPracticeScramble(currentAttempt.scrambleSequence);
-              console.log('[Mobile Practice Timer] Loaded scramble:', currentAttempt.scrambleSequence);
+              console.log('[Mobile Practice Timer] Loaded scramble & attempt ID:', currentAttempt.scrambleSequence, currentAttempt.id);
             }
           } catch (syncErr) {
             console.warn('[Mobile Practice Timer] Failed to sync session data:', syncErr);
@@ -473,12 +597,15 @@ export default function PracticeTimer() {
       setMatchId(res.matchId);
       setDeviceSessionToken(scannedCode);
       setMobileTimerSessionId(res.sessionId);
+      setIsPracticeMode(false);
       setIsOnlineMode(true);
+      setIsFreeMode(false);
       setShowScanner(false);
       Vibration.vibrate([0, 100, 50, 100]); // Success pattern vibration
 
       // Save pairing details in AsyncStorage
       const userId = user?.id || 'default';
+      await AsyncStorage.setItem(`@session_type_${userId}`, 'arena');
       await AsyncStorage.setItem(`@arena_pairing_active_${userId}`, 'true');
       await AsyncStorage.setItem(`@arena_match_id_${userId}`, res.matchId);
       await AsyncStorage.setItem(`@arena_device_session_token_${userId}`, scannedCode);
@@ -511,9 +638,19 @@ export default function PracticeTimer() {
   };
 
   const handleDisconnect = async () => {
+    const currentSessionId = mobileTimerSessionId;
+    const wasPractice = isPracticeMode;
+
     const performDisconnect = async () => {
+      if (wasPractice && currentSessionId && accessToken) {
+        disconnectPracticeSession(currentSessionId, accessToken).catch((err) => {
+          console.warn('[Mobile Timer] Disconnect API error:', err);
+        });
+      }
+
       setIsOnlineMode(false);
       setIsPracticeMode(false);
+      setIsFreeMode(false);
       setPracticeScramble(null);
       setMatchId('');
       setDeviceSessionToken('');
@@ -550,48 +687,83 @@ export default function PracticeTimer() {
   };
 
   const handleQuickReconnect = async () => {
-    if (!accessToken || !user?.id) return;
+    if (!accessToken) {
+      console.log('[Mobile Timer] Reconnect aborted: missing accessToken');
+      return;
+    }
 
     setIsConnecting(true);
     setConnectionError(null);
 
     try {
-      const userId = user.id;
-      const keyActive = `@arena_pairing_active_${userId}`;
-      const keyMatchId = `@arena_match_id_${userId}`;
-      const keyToken = `@arena_device_session_token_${userId}`;
-      const keySessionId = `@arena_mobile_timer_session_id_${userId}`;
+      const userId = user?.id || 'default';
+      const sessionType = (await AsyncStorage.getItem(`@session_type_${userId}`)) || 'practice';
 
-      const savedToken = await AsyncStorage.getItem(keyToken);
-      if (!savedToken) {
-        setHasSavedSession(false);
-        setIsConnecting(false);
-        return;
+      if (sessionType === 'practice') {
+        const practiceSessionId = await AsyncStorage.getItem(`@practice_session_id_${userId}`);
+        if (!practiceSessionId) {
+          setHasSavedSession(false);
+          setIsConnecting(false);
+          setConnectionError('No saved practice session found. Please scan QR on Web.');
+          return;
+        }
+
+        console.log('[Mobile Timer] Reconnecting to Practice Session:', practiceSessionId);
+        try {
+          await connectPracticeSession(practiceSessionId, accessToken);
+          try {
+            const details = await getPracticeSessionDetail(practiceSessionId, accessToken);
+            if (details?.solves) setCompletedSolveCount(details.solves.length);
+          } catch (_) {}
+
+          let currentAttempt = await getCurrentPracticeAttempt(practiceSessionId, accessToken);
+          if (!currentAttempt?.id) {
+            currentAttempt = await createPracticeAttempt(practiceSessionId, accessToken);
+          }
+          if (currentAttempt?.id) activeAttemptIdRef.current = currentAttempt.id;
+          if (currentAttempt?.scrambleSequence) setPracticeScramble(currentAttempt.scrambleSequence);
+
+          setMobileTimerSessionId(practiceSessionId);
+          setIsPracticeMode(true);
+          setIsOnlineMode(true);
+          setIsFreeMode(false);
+          setHasSavedSession(true);
+          Vibration.vibrate([0, 100, 50, 100]);
+        } catch (practiceErr: any) {
+          console.warn('[Mobile Timer] Practice Reconnect failed:', practiceErr);
+          await clearSavedArenaPairing();
+          setHasSavedSession(false);
+          setConnectionError('This practice session has ended. Please scan QR on Web for a new session.');
+        }
+      } else {
+        const savedToken = await AsyncStorage.getItem(`@arena_device_session_token_${userId}`);
+        if (!savedToken) {
+          setHasSavedSession(false);
+          setIsConnecting(false);
+          setConnectionError('No saved arena match found. Please scan QR.');
+          return;
+        }
+
+        console.log('[Mobile Timer] Reconnecting to Arena match token:', savedToken);
+        const devInfo = `${Device.brand || 'Device'} ${Device.modelName || 'Model'} (${Platform.OS})`;
+        const res = await connectMobileTimer({
+          qrSessionCode: savedToken,
+          deviceInfo: devInfo,
+        }, accessToken);
+
+        setMatchId(res.matchId);
+        setDeviceSessionToken(savedToken);
+        setMobileTimerSessionId(res.sessionId);
+        setIsPracticeMode(false);
+        setIsOnlineMode(true);
+        setIsFreeMode(false);
+        setHasSavedSession(true);
+        Vibration.vibrate([0, 100, 50, 100]);
       }
-
-      const devInfo = `${Device.brand || 'Device'} ${Device.modelName || 'Model'} (${Platform.OS})`;
-      const res = await connectMobileTimer({
-        qrSessionCode: savedToken,
-        deviceInfo: devInfo,
-      }, accessToken);
-
-      setMatchId(res.matchId);
-      setDeviceSessionToken(savedToken);
-      setMobileTimerSessionId(res.sessionId);
-      setIsOnlineMode(true);
-      setHasSavedSession(true);
-
-      await AsyncStorage.setItem(keyActive, 'true');
-      await AsyncStorage.setItem(keyMatchId, res.matchId);
-      await AsyncStorage.setItem(keyToken, savedToken);
-      await AsyncStorage.setItem(keySessionId, res.sessionId);
-
-      Vibration.vibrate([0, 100, 50, 100]);
     } catch (err: any) {
       console.error('[Mobile Timer] Quick reconnect failed:', err);
-
       if (err.status === 404 || err.status === 400 || err.status === 409 || err.status === 403 || err.status === 401) {
-        setConnectionError('This match has ended or is no longer active.');
+        setConnectionError('This session has ended or is no longer active.');
         await clearSavedArenaPairing();
         setHasSavedSession(false);
       } else {
@@ -645,267 +817,324 @@ export default function PracticeTimer() {
     setTime(0);
   };
 
+  const isTimerActive = isOnlineMode;
+
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       <SafeAreaView style={styles.safeArea}>
 
-        {/* Navigation Header */}
-        {status !== 'running' && (
-          <View style={[styles.header, { borderBottomColor: colors.border }]}>
-            {isConnecting ? (
-              <View style={styles.connectLoadingBtn}>
-                <ActivityIndicator size="small" color={colors.accent} />
-                <Text style={[styles.connectBtnText, { color: colors.accent, marginLeft: 4 }]}>Linking...</Text>
+        {/* ── VIEW 1: PRE-TIMER HUB (Minimalist English) ── */}
+        {!isTimerActive && (
+          <View style={styles.hubContainer}>
+            {/* Hub Header */}
+            <View style={[styles.hubHeader, { borderBottomColor: colors.border }]}>
+              <View style={styles.headerLogoRow}>
+                <Image
+                  source={require('@/assets/images/logoCube.png')}
+                  style={styles.miniLogo}
+                  resizeMode="contain"
+                />
+                <View style={styles.miniBrandRow}>
+                  <Text style={[styles.miniBrandText, { color: colors.text }]}>CUBE</Text>
+                  <Text style={[styles.miniBrandText, { color: scheme === 'dark' ? colors.accent : colors.primary }]}>NEXUS</Text>
+                </View>
               </View>
-            ) : isOnlineMode ? (
-              <TouchableOpacity onPress={handleDisconnect} style={[styles.disconnectBtn, isPracticeMode && { borderColor: '#f59e0b' }]}>
-                <MaterialCommunityIcons name="lan-disconnect" size={20} color={isPracticeMode ? '#f59e0b' : '#ef4444'} />
-                <Text style={[styles.disconnectBtnText, isPracticeMode && { color: '#f59e0b' }]}>
-                  {isPracticeMode ? 'Exit Practice' : 'Exit Arena'}
+              <View style={[styles.statusBadge, { backgroundColor: colors.backgroundSelected }]}>
+                <Text style={[styles.statusBadgeText, { color: colors.success }]}>● READY</Text>
+              </View>
+            </View>
+
+            <View style={styles.hubContent}>
+              {/* Minimal Hero */}
+              <View style={styles.hubHero}>
+                <View style={[styles.hubIconCircle, { backgroundColor: colors.primary + '15', borderColor: colors.primary + '30' }]}>
+                  <MaterialCommunityIcons name="qrcode-scan" size={36} color={colors.primary} />
+                </View>
+                <Text style={[styles.hubTitle, { color: colors.text }]}>Mobile Timer</Text>
+                <Text style={[styles.hubSubtitle, { color: colors.textSecondary }]}>
+                  Scan QR code on Web to pair device
                 </Text>
+              </View>
+
+              {/* Main Primary Action: Scan QR Button */}
+              <TouchableOpacity
+                style={[styles.bigScanButton, { backgroundColor: colors.primary }]}
+                activeOpacity={0.88}
+                onPress={startScannerFlow}
+              >
+                <MaterialCommunityIcons name="camera-outline" size={18} color="#fff" />
+                <Text style={styles.bigScanTitle}>Scan QR Code</Text>
               </TouchableOpacity>
-            ) : (
-              <View style={{ flexDirection: 'row', gap: 6 }}>
-                <TouchableOpacity onPress={startScannerFlow} style={styles.connectBtn}>
-                  <MaterialCommunityIcons name="qrcode-scan" size={14} color={colors.accent} />
-                  <Text style={[styles.connectBtnText, { color: colors.accent }]}>{hasSavedSession ? 'Pair' : 'Pair PC Arena'}</Text>
+
+              {/* Quick Reconnect if previously paired */}
+              {hasSavedSession && (
+                <TouchableOpacity
+                  style={[styles.quickReconnectBtn, { borderColor: '#06d6a0', backgroundColor: 'rgba(6, 214, 160, 0.08)' }]}
+                  activeOpacity={0.85}
+                  onPress={handleQuickReconnect}
+                  disabled={isConnecting}
+                >
+                  {isConnecting && (
+                    <ActivityIndicator size="small" color="#06d6a0" style={{ marginRight: 6 }} />
+                  )}
+                  <Text style={[styles.quickReconnectText, { color: '#06d6a0' }]}>
+                    {isConnecting ? 'Reconnecting...' : 'Reconnect Previous Session'}
+                  </Text>
                 </TouchableOpacity>
-                {hasSavedSession && (
-                  <TouchableOpacity onPress={handleQuickReconnect} style={styles.reconnectBtn}>
-                    <MaterialCommunityIcons name="lightning-bolt" size={14} color="#06d6a0" />
-                    <Text style={[styles.reconnectBtnText, { color: '#06d6a0' }]}>Reconnect</Text>
+              )}
+            </View>
+          </View>
+        )}
+
+        {/* ── VIEW 2: ACTIVE TIMER SCREEN (Toàn bộ code và UI timer gốc khi đã kết nối Online/Practice) ── */}
+        {isTimerActive && (
+          <>
+            {/* Navigation Header */}
+            {status !== 'running' && (
+              <View style={[styles.header, { borderBottomColor: colors.border }]}>
+                {isConnecting ? (
+                  <View style={styles.connectLoadingBtn}>
+                    <ActivityIndicator size="small" color={colors.accent} />
+                    <Text style={[styles.connectBtnText, { color: colors.accent, marginLeft: 4 }]}>Linking...</Text>
+                  </View>
+                ) : (
+                  <TouchableOpacity onPress={handleDisconnect} style={[styles.disconnectBtn, isPracticeMode && { borderColor: '#f59e0b' }]}>
+                    <MaterialCommunityIcons name="lan-disconnect" size={20} color={isPracticeMode ? '#f59e0b' : '#ef4444'} />
+                    <Text style={[styles.disconnectBtnText, isPracticeMode && { color: '#f59e0b' }]}>
+                      {isPracticeMode ? 'Exit Practice' : 'Exit Arena'}
+                    </Text>
+                  </TouchableOpacity>
+                )}
+
+                <View style={styles.headerLogoRow}>
+                  <Image
+                    source={require('@/assets/images/logoCube.png')}
+                    style={styles.miniLogo}
+                    resizeMode="contain"
+                  />
+                  <View style={styles.miniBrandRow}>
+                    <Text style={[styles.miniBrandText, { color: colors.text }]}>CUBE</Text>
+                    <Text style={[styles.miniBrandText, { color: scheme === 'dark' ? colors.accent : colors.primary }]}>NEXUS</Text>
+                  </View>
+                </View>
+
+                {isOnlineMode ? (
+                  <View style={{ width: 40 }} />
+                ) : (
+                  <TouchableOpacity onPress={clearSession} style={styles.clearButton}>
+                    <MaterialCommunityIcons name="refresh" size={22} color={colors.textSecondary} />
                   </TouchableOpacity>
                 )}
               </View>
             )}
 
-            <View style={styles.headerLogoRow}>
-              <Image
-                source={require('@/assets/images/logoCube.png')}
-                style={styles.miniLogo}
-                resizeMode="contain"
-              />
-              <View style={styles.miniBrandRow}>
-                <Text style={[styles.miniBrandText, { color: colors.text }]}>CUBE</Text>
-                <Text style={[styles.miniBrandText, { color: scheme === 'dark' ? colors.accent : colors.primary }]}>NEXUS</Text>
-              </View>
-            </View>
-
-            {isOnlineMode ? (
-              <View style={{ width: 40 }} />
-            ) : (
-              <TouchableOpacity onPress={clearSession} style={styles.clearButton}>
-                <MaterialCommunityIcons name="refresh" size={22} color={colors.textSecondary} />
-              </TouchableOpacity>
-            )}
-          </View>
-        )}
-
-        {/* Practice Mode Banner + Scramble */}
-        {isOnlineMode && isPracticeMode && status !== 'running' && (
-          <View style={[styles.arenaBanner, { borderLeftColor: '#f59e0b', borderLeftWidth: 3 }]}>
-            <View style={styles.arenaRow}>
-              <View style={[styles.arenaIndicator, { backgroundColor: '#f59e0b' }]} />
-              <Text style={[styles.arenaText, { color: '#f59e0b' }]}>🎯 PRACTICE MODE – SYNCED WITH WEB</Text>
-            </View>
-            {practiceScramble ? (
-              <Text style={[styles.scrambleText, { color: colors.text, marginTop: 8, textAlign: 'center', fontSize: 15 }]}>
-                {practiceScramble}
-              </Text>
-            ) : (
-              <Text style={[styles.arenaSubtext, { color: colors.textSecondary }]}>
-                Fetching scramble sequence from Web...
-              </Text>
-            )}
-          </View>
-        )}
-
-        {/* Arena Online Banner (PvP - no scramble on mobile) */}
-        {isOnlineMode && !isPracticeMode && status !== 'running' && (
-          <View style={styles.arenaBanner}>
-            <View style={styles.arenaRow}>
-              <View style={styles.arenaIndicator} />
-              <Text style={styles.arenaText}>⚔️ ARENA ONLINE MODE ACTIVE</Text>
-            </View>
-            <Text style={[styles.arenaSubtext, { color: scheme === 'dark' ? 'rgba(255,255,255,0.4)' : colors.textSecondary }]}>
-              Look at PC screen for scramble sequence.
-            </Text>
-          </View>
-        )}
-
-        {/* Scramble Display (Offline Only) */}
-        {!isOnlineMode && status !== 'running' && (
-          <View style={styles.scrambleContainer}>
-            <Text style={[styles.scrambleLabel, { color: colors.primary }]}>SCRAMBLE</Text>
-            <Text style={[styles.scrambleText, { color: colors.text }]}>{scramble}</Text>
-          </View>
-        )}
-
-        {/* Timer Trigger & Visual Display Area */}
-        <TouchableOpacity
-          style={[
-            styles.timerArea,
-            isOnlineMode && styles.arenaTimerArea,
-            status === 'holding' && styles.areaHolding,
-            status === 'ready' && styles.areaReady
-          ]}
-          activeOpacity={1}
-          onPressIn={handleTouchStart}
-          onPressOut={handleTouchEnd}
-        >
-          <View style={styles.timerDisplayWrapper}>
-            {status === 'idle' && isOnlineMode && !isPracticeMode && !isUploading && (
-              <MaterialCommunityIcons name="sword-cross" size={24} color="rgba(255, 137, 17, 0.4)" style={{ marginBottom: 8 }} />
-            )}
-            {/* Badge for latest solve if previous solves completed and waiting for new solve */}
-            {lastCompletedTime !== null && status === 'idle' && isPracticeMode && (
-              <View style={{ backgroundColor: 'rgba(6, 214, 160, 0.15)', borderColor: '#06d6a0', borderWidth: 1, paddingHorizontal: 14, paddingVertical: 6, borderRadius: 20, marginBottom: 16, alignItems: 'center' }}>
-                <Text style={{ color: '#06d6a0', fontWeight: '800', fontSize: 13 }}>
-                  ✓ Solved #{completedSolveCount}: {formatTime(lastCompletedTime)}s
-                </Text>
-              </View>
-            )}
-
-            {/* Giant Timer Display - ALWAYS INSTANT, NEVER BLOCKED BY SPINNER */}
-            <Text
-              style={[
-                styles.timerText,
-                {
-                  color:
-                    status === 'holding'
-                      ? '#ef4444'
-                      : status === 'ready'
-                      ? '#06d6a0'
-                      : status === 'running'
-                      ? '#06d6a0'
-                      : status === 'stopped'
-                      ? '#06d6a0'
-                      : '#ca8a04',
-                },
-              ]}
-            >
-              {formatTime(time)}
-            </Text>
-
-            {status === 'stopped' && (
-              <Text style={[styles.helperText, { color: '#06d6a0' }]}>
-                {isUploading
-                  ? '💾 SYNCING WITH WEB...'
-                  : isPracticeMode
-                  ? 'TAP SCREEN TO START NEXT SOLVE (RESET TO 0)'
-                  : 'TAP TO RESET TIMER TO 0'}
-              </Text>
-            )}
-            {status === 'idle' && (
-              <Text style={[styles.helperText, { color: isOnlineMode && !isPracticeMode ? colors.accent : colors.textSecondary }]}>
-                {isPracticeMode
-                  ? 'TOUCH AND HOLD TO ARM TIMER'
-                  : isOnlineMode
-                  ? 'ONLINE DUEL: PRESS & HOLD TO START'
-                  : 'TOUCH AND HOLD TO ARM TIMER'}
-              </Text>
-            )}
-            {status === 'holding' && (
-              <Text style={[styles.helperText, { color: '#ef4444' }]}>
-                {isPracticeMode ? '⏳ HOLD ON... WAIT FOR GREEN LIGHT' : 'WAIT FOR GREEN...'}
-              </Text>
-            )}
-            {status === 'ready' && (
-              <Text style={[styles.helperText, { color: '#06d6a0' }]}>
-                {isPracticeMode ? '🟢 RELEASE TO START SOLVING!' : 'RELEASE TO START'}
-              </Text>
-            )}
-            {status === 'running' && (
-              <Text style={[styles.helperText, { color: '#06d6a0' }]}>
-                {isPracticeMode ? '⏱️ TAP SCREEN TO STOP TIMER' : 'TAP ANYWHERE TO STOP'}
-              </Text>
-            )}
-          </View>
-        </TouchableOpacity>
-
-        {/* Session Stats & Solve History (Offline Only) */}
-        {status !== 'running' && !isOnlineMode && (
-          <View style={[styles.historySection, { backgroundColor: colors.backgroundElement, borderTopColor: colors.border }]}>
-
-            {/* Quick Stats */}
-            <View style={[styles.statsBar, { borderBottomColor: colors.border }]}>
-              <View style={styles.statItem}>
-                <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Ao5</Text>
-                <Text style={[styles.statValue, { color: scheme === 'dark' ? colors.accent : colors.primary }]}>{getAo5()}</Text>
-              </View>
-              <View style={styles.statItem}>
-                <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Session Avg</Text>
-                <Text style={[styles.statValue, { color: colors.text }]}>{getAverage()}</Text>
-              </View>
-              <View style={styles.statItem}>
-                <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Best</Text>
-                <Text style={[styles.statValue, { color: colors.success }]}>{getBestTime()}</Text>
-              </View>
-            </View>
-
-            {/* Solves History */}
-            <View style={styles.historyListWrapper}>
-              <View style={styles.historyHeader}>
-                <Text style={[styles.historyTitle, { color: colors.text }]}>
-                  Solves List ({solves.length})
-                </Text>
-              </View>
-
-              {solves.length === 0 ? (
-                <View style={styles.emptyContainer}>
-                  <MaterialCommunityIcons name="cube-outline" size={48} color={colors.border} />
-                  <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
-                    No solves recorded yet in this session.
-                  </Text>
+            {/* Practice Mode Banner + Scramble */}
+            {isOnlineMode && isPracticeMode && status !== 'running' && (
+              <View style={[styles.arenaBanner, { borderLeftColor: '#f59e0b', borderLeftWidth: 3 }]}>
+                <View style={styles.arenaRow}>
+                  <View style={[styles.arenaIndicator, { backgroundColor: '#f59e0b' }]} />
+                  <Text style={[styles.arenaText, { color: '#f59e0b' }]}>🎯 PRACTICE MODE – SYNCED WITH WEB</Text>
                 </View>
-              ) : (
-                <FlatList
-                  data={solves}
-                  keyExtractor={(item) => item.id}
-                  showsVerticalScrollIndicator={false}
-                  renderItem={({ item, index }) => (
-                    <View style={[styles.solveItem, { borderBottomColor: colors.border }]}>
-                      <View style={styles.solveNumberWrapper}>
-                        <Text style={[styles.solveIndex, { color: colors.textSecondary }]}>
-                          #{solves.length - index}
-                        </Text>
-                        <Text style={[styles.solveTime, { color: colors.text }]}>
-                          {item.timeString}s
-                        </Text>
-                      </View>
-                      <Text style={[styles.solveScramble, { color: colors.textSecondary }]} numberOfLines={1}>
-                        {item.scramble}
+                {practiceScramble ? (
+                  <Text style={[styles.scrambleText, { color: colors.text, marginTop: 8, textAlign: 'center', fontSize: 15 }]}>
+                    {practiceScramble}
+                  </Text>
+                ) : (
+                  <Text style={[styles.arenaSubtext, { color: colors.textSecondary }]}>
+                    Fetching scramble sequence from Web...
+                  </Text>
+                )}
+              </View>
+            )}
+
+            {/* Arena Online Banner (PvP - no scramble on mobile) */}
+            {isOnlineMode && !isPracticeMode && status !== 'running' && (
+              <View style={styles.arenaBanner}>
+                <View style={styles.arenaRow}>
+                  <View style={styles.arenaIndicator} />
+                  <Text style={styles.arenaText}>⚔️ ARENA ONLINE MODE ACTIVE</Text>
+                </View>
+                <Text style={[styles.arenaSubtext, { color: scheme === 'dark' ? 'rgba(255,255,255,0.4)' : colors.textSecondary }]}>
+                  Look at PC screen for scramble sequence.
+                </Text>
+              </View>
+            )}
+
+            {/* Scramble Display (Offline Only) */}
+            {!isOnlineMode && status !== 'running' && (
+              <View style={styles.scrambleContainer}>
+                <Text style={[styles.scrambleLabel, { color: colors.primary }]}>SCRAMBLE</Text>
+                <Text style={[styles.scrambleText, { color: colors.text }]}>{scramble}</Text>
+              </View>
+            )}
+
+            {/* Timer Trigger & Visual Display Area */}
+            <TouchableOpacity
+              style={[
+                styles.timerArea,
+                isOnlineMode && styles.arenaTimerArea,
+                status === 'holding' && styles.areaHolding,
+                status === 'ready' && styles.areaReady
+              ]}
+              activeOpacity={1}
+              onPressIn={handleTouchStart}
+              onPressOut={handleTouchEnd}
+            >
+              <View style={styles.timerDisplayWrapper}>
+                {status === 'idle' && isOnlineMode && !isPracticeMode && !isUploading && (
+                  <MaterialCommunityIcons name="sword-cross" size={24} color="rgba(255, 137, 17, 0.4)" style={{ marginBottom: 8 }} />
+                )}
+                {/* Badge for latest solve if previous solves completed and waiting for new solve */}
+                {lastCompletedTime !== null && status === 'idle' && isPracticeMode && (
+                  <View style={{ backgroundColor: 'rgba(6, 214, 160, 0.15)', borderColor: '#06d6a0', borderWidth: 1, paddingHorizontal: 14, paddingVertical: 6, borderRadius: 20, marginBottom: 16, alignItems: 'center' }}>
+                    <Text style={{ color: '#06d6a0', fontWeight: '800', fontSize: 13 }}>
+                      ✓ Solved #{completedSolveCount}: {formatTime(lastCompletedTime)}s
+                    </Text>
+                  </View>
+                )}
+
+                {/* Giant Timer Display - ALWAYS INSTANT, NEVER BLOCKED BY SPINNER */}
+                <Text
+                  style={[
+                    styles.timerText,
+                    {
+                      color:
+                        status === 'holding'
+                          ? '#ef4444'
+                          : status === 'ready'
+                          ? '#06d6a0'
+                          : status === 'running'
+                          ? '#06d6a0'
+                          : status === 'stopped'
+                          ? '#06d6a0'
+                          : '#ca8a04',
+                    },
+                  ]}
+                >
+                  {formatTime(time)}
+                </Text>
+
+                {status === 'stopped' && (
+                  <Text style={[styles.helperText, { color: '#06d6a0' }]}>
+                    {isUploading
+                      ? '💾 SYNCING WITH WEB...'
+                      : isPracticeMode
+                      ? 'TAP SCREEN TO START NEXT SOLVE (RESET TO 0)'
+                      : 'TAP TO RESET TIMER TO 0'}
+                  </Text>
+                )}
+                {status === 'idle' && (
+                  <Text style={[styles.helperText, { color: isOnlineMode && !isPracticeMode ? colors.accent : colors.textSecondary }]}>
+                    {isPracticeMode
+                      ? 'TOUCH AND HOLD TO ARM TIMER'
+                      : isOnlineMode
+                      ? 'ONLINE DUEL: PRESS & HOLD TO START'
+                      : 'TOUCH AND HOLD TO ARM TIMER'}
+                  </Text>
+                )}
+                {status === 'holding' && (
+                  <Text style={[styles.helperText, { color: '#ef4444' }]}>
+                    {isPracticeMode ? '⏳ HOLD ON... WAIT FOR GREEN LIGHT' : 'WAIT FOR GREEN...'}
+                  </Text>
+                )}
+                {status === 'ready' && (
+                  <Text style={[styles.helperText, { color: '#06d6a0' }]}>
+                    {isPracticeMode ? '🟢 RELEASE TO START SOLVING!' : 'RELEASE TO START'}
+                  </Text>
+                )}
+                {status === 'running' && (
+                  <Text style={[styles.helperText, { color: '#06d6a0' }]}>
+                    {isPracticeMode ? '⏱️ TAP SCREEN TO STOP TIMER' : 'TAP ANYWHERE TO STOP'}
+                  </Text>
+                )}
+              </View>
+            </TouchableOpacity>
+
+            {/* Session Stats & Solve History (Offline Only) */}
+            {status !== 'running' && !isOnlineMode && (
+              <View style={[styles.historySection, { backgroundColor: colors.backgroundElement, borderTopColor: colors.border }]}>
+
+                {/* Quick Stats */}
+                <View style={[styles.statsBar, { borderBottomColor: colors.border }]}>
+                  <View style={styles.statItem}>
+                    <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Ao5</Text>
+                    <Text style={[styles.statValue, { color: scheme === 'dark' ? colors.accent : colors.primary }]}>{getAo5()}</Text>
+                  </View>
+                  <View style={styles.statItem}>
+                    <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Session Avg</Text>
+                    <Text style={[styles.statValue, { color: colors.text }]}>{getAverage()}</Text>
+                  </View>
+                  <View style={styles.statItem}>
+                    <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Best</Text>
+                    <Text style={[styles.statValue, { color: colors.success }]}>{getBestTime()}</Text>
+                  </View>
+                </View>
+
+                {/* Solves History */}
+                <View style={styles.historyListWrapper}>
+                  <View style={styles.historyHeader}>
+                    <Text style={[styles.historyTitle, { color: colors.text }]}>
+                      Solves List ({solves.length})
+                    </Text>
+                  </View>
+
+                  {solves.length === 0 ? (
+                    <View style={styles.emptyContainer}>
+                      <MaterialCommunityIcons name="cube-outline" size={48} color={colors.border} />
+                      <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
+                        No solves recorded yet in this session.
                       </Text>
                     </View>
+                  ) : (
+                    <FlatList
+                      data={solves}
+                      keyExtractor={(item) => item.id}
+                      showsVerticalScrollIndicator={false}
+                      renderItem={({ item, index }) => (
+                        <View style={[styles.solveItem, { borderBottomColor: colors.border }]}>
+                          <View style={styles.solveNumberWrapper}>
+                            <Text style={[styles.solveIndex, { color: colors.textSecondary }]}>
+                              #{solves.length - index}
+                            </Text>
+                            <Text style={[styles.solveTime, { color: colors.text }]}>
+                              {item.timeString}s
+                            </Text>
+                          </View>
+                          <Text style={[styles.solveScramble, { color: colors.textSecondary }]} numberOfLines={1}>
+                            {item.scramble}
+                          </Text>
+                        </View>
+                      )}
+                    />
                   )}
-                />
-              )}
-            </View>
+                </View>
 
-          </View>
-        )}
-
-        {/* Online Arena / Practice Info display */}
-        {isOnlineMode && status !== 'running' && (
-          <View style={[styles.historySection, styles.arenaHistorySection, { backgroundColor: colors.backgroundElement }]}>
-            <MaterialCommunityIcons
-              name={isPracticeMode ? "target" : "sword-cross"}
-              size={48}
-              color={isPracticeMode ? '#f59e0b' : colors.accent}
-              style={{ opacity: 0.8, marginBottom: 12, transform: [{ scale: 1.1 }] }}
-            />
-            <Text style={[styles.arenaActiveHeader, { color: isPracticeMode ? '#f59e0b' : colors.accent }]}>
-              {isPracticeMode ? 'PRACTICE SESSION CONNECTED' : 'MATCH ARENA CONNECTED'}
-            </Text>
-            <Text style={[styles.arenaActiveText, { color: colors.textSecondary }]}>
-              {isPracticeMode
-                ? 'Your mobile timer is synchronized with the Web practice session. Solve times and scrambles are updated in real-time.'
-                : 'Your mobile timer is securely linked to the PC arena match. Solving times are instantly transmitted to the server when you stop the timer.'}
-            </Text>
-            {connectionError && (
-              <Text style={styles.errorText}>{connectionError}</Text>
+              </View>
             )}
-          </View>
+
+            {/* Online Arena / Practice Info display */}
+            {isOnlineMode && status !== 'running' && (
+              <View style={[styles.historySection, styles.arenaHistorySection, { backgroundColor: colors.backgroundElement }]}>
+                <MaterialCommunityIcons
+                  name={isPracticeMode ? "target" : "sword-cross"}
+                  size={48}
+                  color={isPracticeMode ? '#f59e0b' : colors.accent}
+                  style={{ opacity: 0.8, marginBottom: 12, transform: [{ scale: 1.1 }] }}
+                />
+                <Text style={[styles.arenaActiveHeader, { color: isPracticeMode ? '#f59e0b' : colors.accent }]}>
+                  {isPracticeMode ? 'PRACTICE SESSION CONNECTED' : 'MATCH ARENA CONNECTED'}
+                </Text>
+                <Text style={[styles.arenaActiveText, { color: colors.textSecondary }]}>
+                  {isPracticeMode
+                    ? 'Your mobile timer is synchronized with the Web practice session. Solve times and scrambles are updated in real-time.'
+                    : 'Your mobile timer is securely linked to the PC arena match. Solving times are instantly transmitted to the server when you stop the timer.'}
+                </Text>
+                {connectionError && (
+                  <Text style={styles.errorText}>{connectionError}</Text>
+                )}
+              </View>
+            )}
+          </>
         )}
 
         {/* QR Scanner Modal */}
@@ -1328,5 +1557,94 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     textTransform: 'uppercase',
     letterSpacing: 0.5,
+  },
+  hubContainer: {
+    flex: 1,
+  },
+  hubHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    height: 56,
+    borderBottomWidth: 1,
+  },
+  statusBadge: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 20,
+  },
+  statusBadgeText: {
+    fontSize: 10,
+    fontWeight: '800',
+    letterSpacing: 0.5,
+  },
+  hubContent: {
+    flex: 1,
+    paddingHorizontal: 24,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingBottom: 40,
+  },
+  hubHero: {
+    alignItems: 'center',
+    marginBottom: 28,
+  },
+  hubIconCircle: {
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+    borderWidth: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 14,
+  },
+  hubTitle: {
+    fontSize: 24,
+    fontWeight: '900',
+    letterSpacing: -0.5,
+    marginBottom: 4,
+    textAlign: 'center',
+  },
+  hubSubtitle: {
+    fontSize: 13,
+    textAlign: 'center',
+  },
+  bigScanButton: {
+    width: '100%',
+    maxWidth: 290,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingVertical: 12,
+    borderRadius: 14,
+    marginBottom: 10,
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 6,
+  },
+  bigScanTitle: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: '800',
+    letterSpacing: 0.2,
+  },
+  quickReconnectBtn: {
+    width: '100%',
+    maxWidth: 290,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 10,
+    borderWidth: 1,
+    borderRadius: 14,
+    marginBottom: 10,
+  },
+  quickReconnectText: {
+    fontSize: 12,
+    fontWeight: '700',
   },
 });
