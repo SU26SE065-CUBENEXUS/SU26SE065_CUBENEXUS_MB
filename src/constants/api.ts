@@ -136,7 +136,7 @@ export interface CheckInResponseDto {
 
 
 // ---------- API Fetch Helper ----------
-async function apiFetch<T>(path: string, token?: string, options: RequestInit = {}): Promise<T> {
+export async function apiFetch<T>(path: string, token?: string, options: RequestInit = {}): Promise<T> {
   const headers = {
     'Content-Type': 'application/json',
     'ngrok-skip-browser-warning': 'true',
@@ -537,6 +537,12 @@ export interface FinalizeAttemptRequest {
 
 export async function connectPracticeSession(sessionId: string, token: string): Promise<any> {
   return apiFetch<any>(`/api/practice/sessions/${sessionId}/connect`, token, {
+    method: 'POST',
+  });
+}
+
+export async function disconnectPracticeSession(sessionId: string, token: string): Promise<any> {
+  return apiFetch<any>(`/api/practice/sessions/${sessionId}/disconnect`, token, {
     method: 'POST',
   });
 }
