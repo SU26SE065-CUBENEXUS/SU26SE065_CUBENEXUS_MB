@@ -12,6 +12,7 @@ import {
   Image,
   Alert,
   Animated,
+  Linking,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -24,7 +25,7 @@ import { useLocalSearchParams } from 'expo-router';
 import {
   fetchCompetitorRegistrations,
   fetchPublicTournaments,
-  registerForTournament,
+  registerTournament,
 } from '@/services/competitorService';
 import { RegistrationDto, TournamentDetailDto, EventDetailDto } from '@/types/competitor';
 import { FaceSessionStartDto, getCompetitorQrTicket, startCompetitorCheckInFaceSession } from '@/constants/api';
@@ -225,7 +226,7 @@ export default function TournamentsScreen() {
 
     setSubmittingReg(true);
     try {
-      await registerForTournament(accessToken, selectedTour.id, eventIds);
+      await registerTournament(selectedTour.id, accessToken || '', eventIds);
       Alert.alert('Success', 'Registered successfully!');
       setShowDetailModal(false);
       loadData(true);
@@ -577,12 +578,21 @@ export default function TournamentsScreen() {
                           </View>
 
                           <View style={styles.detailsRow}>
-                            <View style={styles.detailItem}>
-                              <MaterialCommunityIcons name="map-marker-outline" size={14} color={colors.textSecondary} />
-                              <Text style={[styles.detailText, { color: colors.textSecondary }]} numberOfLines={1}>
+                            <TouchableOpacity
+                              style={styles.detailItem}
+                              activeOpacity={0.7}
+                              onPress={() => {
+                                const loc = tour.location || 'Ho Chi Minh City, Vietnam';
+                                const url = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(loc)}`;
+                                Linking.openURL(url).catch((err) => console.warn('Could not open map URL:', err));
+                              }}
+                            >
+                              <MaterialCommunityIcons name="map-marker-outline" size={14} color="#ef4444" />
+                              <Text style={[styles.detailText, { color: colors.primary, textDecorationLine: 'underline' }]} numberOfLines={1}>
                                 {tour.location || 'Ho Chi Minh City, Vietnam'}
                               </Text>
-                            </View>
+                              <MaterialCommunityIcons name="open-in-new" size={11} color={colors.primary} />
+                            </TouchableOpacity>
                             <View style={[styles.detailItem, { width: '100%', marginTop: 2 }]}>
                               <MaterialCommunityIcons name="account-group-outline" size={14} color={colors.accent} />
                               <Text style={[styles.detailText, { color: colors.accent, fontWeight: '700' }]}>
@@ -994,12 +1004,21 @@ export default function TournamentsScreen() {
                       })()}
                     </View>
 
-                    <View style={styles.detailMetaRow}>
-                      <MaterialCommunityIcons name="map-marker" size={16} color={colors.primary} />
-                      <Text style={[styles.detailMetaText, { color: colors.textSecondary }]}>
+                    <TouchableOpacity
+                      style={styles.detailMetaRow}
+                      activeOpacity={0.7}
+                      onPress={() => {
+                        const loc = selectedTour.location || 'Ho Chi Minh City, Vietnam';
+                        const url = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(loc)}`;
+                        Linking.openURL(url).catch((err) => console.warn('Could not open map URL:', err));
+                      }}
+                    >
+                      <MaterialCommunityIcons name="map-marker" size={18} color="#ef4444" />
+                      <Text style={[styles.detailMetaText, { color: colors.primary, textDecorationLine: 'underline', flex: 1, fontWeight: '600' }]}>
                         {selectedTour.location || 'Ho Chi Minh City, Vietnam'}
                       </Text>
-                    </View>
+                      <MaterialCommunityIcons name="open-in-new" size={14} color={colors.primary} />
+                    </TouchableOpacity>
 
                     <View style={styles.detailMetaRow}>
                       <MaterialCommunityIcons name="calendar" size={16} color={colors.primary} />

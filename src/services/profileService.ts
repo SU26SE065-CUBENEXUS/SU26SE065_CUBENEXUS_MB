@@ -19,10 +19,13 @@ export interface UpdateProfileRequestDto {
 }
 
 export async function fetchMyProfile(token: string): Promise<UserProfileDto> {
-  const res = await fetch(`${API_BASE_URL}/api/auth/My-Profile`, {
+  const baseUrl = API_BASE_URL.replace(/\/+$/, '');
+  const res = await fetch(`${baseUrl}/api/auth/My-Profile`, {
     headers: {
       Authorization: `Bearer ${token}`,
       'Content-Type': 'application/json',
+      'ngrok-skip-browser-warning': 'true',
+      'bypass-tunnel-reminder': 'true',
     },
   });
 
@@ -38,11 +41,14 @@ export async function updateMyProfile(
   token: string,
   data: UpdateProfileRequestDto
 ): Promise<UserProfileDto> {
-  const res = await fetch(`${API_BASE_URL}/api/auth/Update-Profile`, {
+  const baseUrl = API_BASE_URL.replace(/\/+$/, '');
+  const res = await fetch(`${baseUrl}/api/auth/Update-Profile`, {
     method: 'PUT',
     headers: {
       Authorization: `Bearer ${token}`,
       'Content-Type': 'application/json',
+      'ngrok-skip-browser-warning': 'true',
+      'bypass-tunnel-reminder': 'true',
     },
     body: JSON.stringify(data),
   });

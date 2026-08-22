@@ -134,15 +134,21 @@ export interface CheckInResponseDto {
   assignments: any[];
 }
 
+
 // ---------- API Fetch Helper ----------
-async function apiFetch<T>(path: string, token?: string, options: RequestInit = {}): Promise<T> {
+export async function apiFetch<T>(path: string, token?: string, options: RequestInit = {}): Promise<T> {
   const headers = {
     'Content-Type': 'application/json',
+    'ngrok-skip-browser-warning': 'true',
+    'bypass-tunnel-reminder': 'true',
     ...(options.headers || {}),
     ...(token ? { Authorization: `Bearer ${token}` } : {}),
   } as Record<string, string>;
 
-  const response = await fetch(`${API_BASE_URL}${path}`, {
+  const baseUrl = API_BASE_URL.replace(/\/+$/, '');
+  const url = path.startsWith('/') ? `${baseUrl}${path}` : `${baseUrl}/${path}`;
+
+  const response = await fetch(url, {
     ...options,
     headers,
   });
@@ -521,4 +527,67 @@ export async function submitMobileTimerTime(dto: SubmitSolveTimeRequest, token: 
     method: 'POST',
     body: JSON.stringify(dto),
   });
+}
+
+// ---------- Practice Session Endpoints ----------
+export interface FinalizeAttemptRequest {
+  timeMs: number;
+  penalty?: 'OK' | 'PLUS_2' | 'DNF' | string;
+}
+
+export async function connectPracticeSession(sessionId: string, token: string): Promise<any> {
+  return apiFetch<any>(`/api/practice/sessions/${sessionId}/connect`, token, {
+    method: 'POST',
+  });
+}
+
+export async function disconnectPracticeSession(sessionId: string, token: string): Promise<any> {
+  return apiFetch<any>(`/api/practice/sessions/${sessionId}/disconnect`, token, {
+    method: 'POST',
+  });
+}
+
+export async function getCurrentPracticeAttempt(sessionId: string, token: string): Promise<any> {
+  return apiFetch<any>(`/api/practice/sessions/${sessionId}/current-attempt`, token);
+}
+
+export async function finalizePracticeAttempt(attemptId: string, dto: FinalizeAttemptRequest, token: string): Promise<any> {
+  return apiFetch<any>(`/api/practice/attempts/${attemptId}/finalize`, token, {
+    method: 'POST',
+    body: JSON.stringify(dto),
+  });
+}
+
+export async function createPracticeAttempt(sessionId: string, token: string): Promise<any> {
+  return apiFetch<any>(`/api/practice/sessions/${sessionId}/attempts`, token, {
+    method: 'POST',
+  });
+}
+
+export async function handsOnPracticeAttempt(attemptId: string, token: string): Promise<any> {
+  return apiFetch<any>(`/api/practice/attempts/${attemptId}/hands-on`, token, {
+    method: 'POST',
+  });
+}
+
+export async function readyPracticeAttempt(attemptId: string, token: string): Promise<any> {
+  return apiFetch<any>(`/api/practice/attempts/${attemptId}/ready`, token, {
+    method: 'POST',
+  });
+}
+
+export async function handsOffPracticeAttempt(attemptId: string, token: string): Promise<any> {
+  return apiFetch<any>(`/api/practice/attempts/${attemptId}/hands-off`, token, {
+    method: 'POST',
+  });
+}
+
+export async function abortPracticeAttempt(attemptId: string, token: string): Promise<any> {
+  return apiFetch<any>(`/api/practice/attempts/${attemptId}/abort`, token, {
+    method: 'POST',
+  });
+}
+
+export async function getPracticeSessionDetail(sessionId: string, token: string): Promise<any> {
+  return apiFetch<any>(`/api/practice/sessions/${sessionId}`, token);
 }
