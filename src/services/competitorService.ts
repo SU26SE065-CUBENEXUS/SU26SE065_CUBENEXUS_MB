@@ -84,6 +84,26 @@ export async function registerForTournament(
   return await res.json();
 }
 
+export async function cancelRegistration(
+  token: string,
+  registrationId: string,
+): Promise<RegistrationDto> {
+  const res = await fetch(`${API_BASE_URL}/api/tournament-registration/registrations/${registrationId}/cancel`, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${token}`,
+      'Content-Type': 'application/json',
+    },
+  });
+
+  if (!res.ok) {
+    const errData = await res.json().catch(() => ({}));
+    throw new Error(errData.message || `Cancellation failed with HTTP ${res.status}`);
+  }
+
+  return await res.json();
+}
+
 function enrichRegistration(reg: RegistrationDto): RegistrationDto {
   const today = new Date();
   

@@ -25,6 +25,7 @@ import {
   fetchCompetitorRegistrations,
   fetchPublicTournaments,
   registerForTournament,
+  cancelRegistration,
 } from '@/services/competitorService';
 import { RegistrationDto, TournamentDetailDto, EventDetailDto } from '@/types/competitor';
 import { FaceSessionStartDto, getCompetitorQrTicket, startCompetitorCheckInFaceSession } from '@/constants/api';
@@ -68,6 +69,7 @@ export default function TournamentsScreen() {
   const params = useLocalSearchParams();
 
   const [activeSegment, setActiveSegment] = useState<TabSegment>('MY_REGS');
+  const [selectedMonthKey, setSelectedMonthKey] = useState<string | null>(null);
 
   useEffect(() => {
     if (params.segment) {
@@ -237,6 +239,32 @@ export default function TournamentsScreen() {
     }
   };
 
+  const handleCancelRegistration = (reg: RegistrationDto) => {
+    if (!accessToken || reg.statusCode === 'CANCELLED') return;
+
+    Alert.alert(
+      'Cancel registration?',
+      'This action is permanent. You will not be able to register for this tournament again.',
+      [
+        { text: 'Keep registration', style: 'cancel' },
+        {
+          text: 'Cancel registration',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await cancelRegistration(accessToken, reg.registrationId);
+              Alert.alert('Registration cancelled', 'You are no longer an active participant in this tournament.');
+              await loadData(false);
+            } catch (err) {
+              const msg = err instanceof Error ? err.message : 'Cancellation failed.';
+              Alert.alert('Cancellation failed', msg);
+            }
+          },
+        },
+      ],
+    );
+  };
+
   const isRegistrationTimelineOpen = (tour: TournamentDetailDto) => {
     const now = new Date();
     const openAt = new Date(tour.registrationOpenAt);
@@ -339,25 +367,96 @@ export default function TournamentsScreen() {
     };
   };
 
-  // Group listings
-  // All public tournaments that are not completed (including PUBLISHED and REGISTRATION_OPEN)
-  const openTournamentsFiltered = publicTournaments.filter(
-    (t) => t.statusCode !== 'COMPLETED' && !getRegistrationForTournament(t.id)
-  );
+  // ─── Month Extraction & Date Sorting Helpers ─────────────────────────────
+  const getRegDateMs = (r: RegistrationDto) => {
+    if (r.tournamentStartDate) {
+      const ms = new Date(r.tournamentStartDate).getTime();
+      if (!isNaN(ms)) return ms;
+    }
+    if (r.registeredAt) {
+      const ms = new Date(r.registeredAt).getTime();
+      if (!isNaN(ms)) return ms;
+    }
+    return 0;
+  };
 
-  // My registrations segment shows active registrations
-  const myActiveRegistrations = registrations.filter(
-    (r) => r.tournamentStatusCode !== 'COMPLETED'
-  );
+  const getTourDateMs = (t: TournamentDetailDto) => {
+    if (t.startDate) {
+      const ms = new Date(t.startDate).getTime();
+      if (!isNaN(ms)) return ms;
+    }
+    if (t.createdAt) {
+      const ms = new Date(t.createdAt).getTime();
+      if (!isNaN(ms)) return ms;
+    }
+    return 0;
+  };
 
-  // Past segment shows completed tournaments or cancelled registrations
-  const completedRegistrations = registrations.filter(
-    (r) => r.tournamentStatusCode === 'COMPLETED'
-  );
+  const getMonthInfo = (dateStr?: string | null) => {
+    if (!dateStr) return null;
+    const d = new Date(dateStr);
+    if (isNaN(d.getTime())) return null;
+    const year = d.getFullYear();
+    const month = d.getMonth() + 1;
+    const monthStr = month < 10 ? `0${month}` : `${month}`;
+    const key = `${year}-${monthStr}`;
+    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    const label = `${months[d.getMonth()]} ${year}`;
+    return { key, label, year, month };
+  };
 
-  const completedPublicTournaments = publicTournaments.filter(
-    (t) => t.statusCode === 'COMPLETED' && !getRegistrationForTournament(t.id)
-  );
+  // Dynamically extract unique available months across all tournaments (sorted ascending: nearest month first)
+  const availableMonths = React.useMemo(() => {
+    const map = new Map<string, { key: string; label: string; year: number; month: number }>();
+
+    publicTournaments.forEach((t) => {
+      const info = getMonthInfo(t.startDate);
+      if (info && !map.has(info.key)) map.set(info.key, info);
+    });
+
+    registrations.forEach((r) => {
+      const info = getMonthInfo(r.tournamentStartDate || r.registeredAt);
+      if (info && !map.has(info.key)) map.set(info.key, info);
+    });
+
+    return Array.from(map.values()).sort((a, b) => a.key.localeCompare(b.key));
+  }, [publicTournaments, registrations]);
+
+  const matchesSelectedMonth = (dateStr?: string | null) => {
+    if (!selectedMonthKey) return true;
+    const info = getMonthInfo(dateStr);
+    return info?.key === selectedMonthKey;
+  };
+
+  // Group listings sorted by start date ascending (from nearest month Month 8 -> Month 10 -> Month 11 to furthest month)
+  const openTournamentsFiltered = publicTournaments
+    .filter(
+      (t) => t.statusCode !== 'COMPLETED' && !getRegistrationForTournament(t.id) && matchesSelectedMonth(t.startDate)
+    )
+    .sort((a, b) => getTourDateMs(a) - getTourDateMs(b));
+
+  // My registrations segment shows active registrations (sorted by start date ascending)
+  const myActiveRegistrations = registrations
+    .filter(
+      (r) => r.statusCode !== 'CANCELLED'
+        && r.tournamentStatusCode !== 'COMPLETED'
+        && matchesSelectedMonth(r.tournamentStartDate || r.registeredAt)
+    )
+    .sort((a, b) => getRegDateMs(a) - getRegDateMs(b));
+
+  // Past segment shows completed tournaments or cancelled registrations (sorted by start date ascending)
+  const completedRegistrations = registrations
+    .filter(
+      (r) => (r.statusCode === 'CANCELLED' || r.tournamentStatusCode === 'COMPLETED')
+        && matchesSelectedMonth(r.tournamentStartDate || r.registeredAt)
+    )
+    .sort((a, b) => getRegDateMs(a) - getRegDateMs(b));
+
+  const completedPublicTournaments = publicTournaments
+    .filter(
+      (t) => t.statusCode === 'COMPLETED' && !getRegistrationForTournament(t.id) && matchesSelectedMonth(t.startDate)
+    )
+    .sort((a, b) => getTourDateMs(a) - getTourDateMs(b));
 
   const formatDates = (startStr?: string | null, endStr?: string | null) => {
     if (!startStr) return '';
@@ -373,6 +472,7 @@ export default function TournamentsScreen() {
     }
     return `${startFormatted}, ${start.getFullYear()}`;
   };
+
   const getRegStatusLabel = (tourId: string) => {
     const reg = getRegistrationForTournament(tourId);
     if (!reg) return 'Not Registered';
@@ -429,6 +529,77 @@ export default function TournamentsScreen() {
             </Text>
           </TouchableOpacity>
         </View>
+
+        {/* Month Filter Selector */}
+        {availableMonths.length > 0 && (
+          <View style={[styles.monthFilterContainer, { borderBottomColor: colors.border, backgroundColor: colors.backgroundElement }]}>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.monthFilterScroll}
+            >
+              <TouchableOpacity
+                style={[
+                  styles.monthChip,
+                  {
+                    backgroundColor: selectedMonthKey === null ? colors.primary : colors.background,
+                    borderColor: selectedMonthKey === null ? colors.primary : colors.border,
+                  },
+                ]}
+                onPress={() => setSelectedMonthKey(null)}
+              >
+                <Text
+                  style={[
+                    styles.monthChipText,
+                    { color: selectedMonthKey === null ? '#fff' : colors.textSecondary },
+                  ]}
+                >
+                  All Months
+                </Text>
+              </TouchableOpacity>
+
+              {availableMonths.map((m) => {
+                const isSelected = selectedMonthKey === m.key;
+                return (
+                  <TouchableOpacity
+                    key={m.key}
+                    style={[
+                      styles.monthChip,
+                      {
+                        backgroundColor: isSelected ? colors.primary : colors.background,
+                        borderColor: isSelected ? colors.primary : colors.border,
+                      },
+                    ]}
+                    onPress={() => setSelectedMonthKey(isSelected ? null : m.key)}
+                  >
+                    <MaterialCommunityIcons
+                      name="calendar-month-outline"
+                      size={13}
+                      color={isSelected ? '#fff' : colors.textSecondary}
+                    />
+                    <Text
+                      style={[
+                        styles.monthChipText,
+                        { color: isSelected ? '#fff' : colors.textSecondary },
+                      ]}
+                    >
+                      {m.label}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </ScrollView>
+
+            {selectedMonthKey && (
+              <TouchableOpacity
+                style={styles.clearFilterBtn}
+                onPress={() => setSelectedMonthKey(null)}
+              >
+                <MaterialCommunityIcons name="close-circle" size={18} color={colors.textSecondary} />
+              </TouchableOpacity>
+            )}
+          </View>
+        )}
 
         <ScrollView
           contentContainerStyle={styles.scrollContent}
@@ -514,6 +685,16 @@ export default function TournamentsScreen() {
                               <Text style={[styles.actionBtnText, { color: '#fff' }]}>
                                 QR Ticket
                               </Text>
+                            </TouchableOpacity>
+                          )}
+
+                          {(reg.statusCode === 'PENDING' || reg.statusCode === 'CONFIRMED') && (
+                            <TouchableOpacity
+                              style={[styles.actionBtn, styles.borderBtn, { borderColor: '#ef4444' }]}
+                              onPress={() => handleCancelRegistration(reg)}
+                            >
+                              <MaterialCommunityIcons name="close-circle-outline" size={16} color="#ef4444" />
+                              <Text style={[styles.actionBtnText, { color: '#ef4444' }]}>Cancel</Text>
                             </TouchableOpacity>
                           )}
                         </View>
@@ -1140,6 +1321,36 @@ const styles = StyleSheet.create({
   tabBar: { flexDirection: 'row', height: 44, borderBottomWidth: 1 },
   tabItem: { flex: 1, justifyContent: 'center', alignItems: 'center', borderBottomWidth: 2, borderBottomColor: 'transparent' },
   tabLabel: { fontSize: 12, fontWeight: '800' },
+
+  // Month Filter
+  monthFilterContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 8,
+    borderBottomWidth: 1,
+  },
+  monthFilterScroll: {
+    paddingHorizontal: 16,
+    gap: 8,
+    alignItems: 'center',
+  },
+  monthChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 20,
+    borderWidth: 1,
+  },
+  monthChipText: {
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  clearFilterBtn: {
+    paddingRight: 14,
+    paddingLeft: 4,
+  },
 
   scrollContent: { paddingHorizontal: 16, paddingTop: 14, paddingBottom: 40 },
   listContainer: { gap: 14 },
