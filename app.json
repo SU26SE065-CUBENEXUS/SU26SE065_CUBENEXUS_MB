@@ -47,11 +47,10 @@
         }
       ],
       [
-        "react-native-vision-camera",
+        "expo-camera",
         {
-          "cameraPermissionText": "Allow CubeNexus to use the camera for face verification.",
-          "enableMicrophonePermission": false,
-          "enableFrameProcessors": true
+          "cameraPermission": "Allow CubeNexus to use the camera for face verification.",
+          "microphonePermission": false
         }
       ]
     ],
