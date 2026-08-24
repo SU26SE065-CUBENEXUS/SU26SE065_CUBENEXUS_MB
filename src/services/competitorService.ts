@@ -84,6 +84,7 @@ export async function registerTournament(
       'bypass-tunnel-reminder': 'true',
     },
     body: JSON.stringify({
+      events: eventIds.map((id) => ({ eventId: id })),
       selectedEventIds: eventIds,
     }),
   });
