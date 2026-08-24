@@ -10,6 +10,7 @@
     "start:dev": "set BROWSER=none&& expo start --dev-client --lan --port 8088",
     "start:dev:tunnel": "set BROWSER=none&& expo start --dev-client --tunnel --port 8088",
     "start:usb": "set BROWSER=none&& expo start --localhost --port 8088",
+    "start:offline": "set BROWSER=none&& expo start --offline --port 8088",
     "start:online": "set BROWSER=none&& expo start --lan --port 8088",
     "reset-project": "node ./scripts/reset-project.js",
     "android": "expo start --android --port 8088",

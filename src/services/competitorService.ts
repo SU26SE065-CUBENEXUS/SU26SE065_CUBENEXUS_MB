@@ -3,10 +3,13 @@ import { RegistrationDto, TournamentDetailDto } from '@/types/competitor';
 
 export async function fetchCompetitorRegistrations(token: string): Promise<RegistrationDto[]> {
   try {
-    const res = await fetch(`${API_BASE_URL}/api/me/registrations`, {
+    const baseUrl = API_BASE_URL.replace(/\/+$/, '');
+    const res = await fetch(`${baseUrl}/api/me/registrations`, {
       headers: {
         Authorization: `Bearer ${token}`,
         'Content-Type': 'application/json',
+        'ngrok-skip-browser-warning': 'true',
+        'bypass-tunnel-reminder': 'true',
       },
     });
 
@@ -24,9 +27,12 @@ export async function fetchCompetitorRegistrations(token: string): Promise<Regis
 
 export async function fetchPublicTournaments(): Promise<TournamentDetailDto[]> {
   try {
-    const res = await fetch(`${API_BASE_URL}/api/tournaments`, {
+    const baseUrl = API_BASE_URL.replace(/\/+$/, '');
+    const res = await fetch(`${baseUrl}/api/tournaments`, {
       headers: {
         'Content-Type': 'application/json',
+        'ngrok-skip-browser-warning': 'true',
+        'bypass-tunnel-reminder': 'true',
       },
     });
 
@@ -43,9 +49,12 @@ export async function fetchPublicTournaments(): Promise<TournamentDetailDto[]> {
 
 export async function fetchTournamentById(id: string): Promise<TournamentDetailDto | null> {
   try {
-    const res = await fetch(`${API_BASE_URL}/api/tournaments/${id}`, {
+    const baseUrl = API_BASE_URL.replace(/\/+$/, '');
+    const res = await fetch(`${baseUrl}/api/tournaments/${id}`, {
       headers: {
         'Content-Type': 'application/json',
+        'ngrok-skip-browser-warning': 'true',
+        'bypass-tunnel-reminder': 'true',
       },
     });
 
@@ -60,19 +69,22 @@ export async function fetchTournamentById(id: string): Promise<TournamentDetailD
   }
 }
 
-export async function registerForTournament(
-  token: string, 
-  tournamentId: string, 
+export async function registerTournament(
+  tournamentId: string,
+  token: string,
   eventIds: string[]
-): Promise<RegistrationDto> {
-  const res = await fetch(`${API_BASE_URL}/api/tournament-registration/tournaments/${tournamentId}/register`, {
+): Promise<any> {
+  const baseUrl = API_BASE_URL.replace(/\/+$/, '');
+  const res = await fetch(`${baseUrl}/api/tournament-registration/tournaments/${tournamentId}/register`, {
     method: 'POST',
     headers: {
       Authorization: `Bearer ${token}`,
       'Content-Type': 'application/json',
+      'ngrok-skip-browser-warning': 'true',
+      'bypass-tunnel-reminder': 'true',
     },
     body: JSON.stringify({
-      events: eventIds.map(id => ({ eventId: id })),
+      selectedEventIds: eventIds,
     }),
   });
 
@@ -106,14 +118,14 @@ export async function cancelRegistration(
 
 function enrichRegistration(reg: RegistrationDto): RegistrationDto {
   const today = new Date();
-  
+
   // Only fill in missing dates, never overwrite server-provided data
-  const startDate = reg.tournamentStartDate 
-    ? new Date(reg.tournamentStartDate).toISOString() 
+  const startDate = reg.tournamentStartDate
+    ? new Date(reg.tournamentStartDate).toISOString()
     : new Date(today.getFullYear(), today.getMonth(), today.getDate() + 2, 9, 0).toISOString();
-    
-  const endDate = reg.tournamentEndDate 
-    ? new Date(reg.tournamentEndDate).toISOString() 
+
+  const endDate = reg.tournamentEndDate
+    ? new Date(reg.tournamentEndDate).toISOString()
     : new Date(today.getFullYear(), today.getMonth(), today.getDate() + 3, 18, 0).toISOString();
 
   // Trust the server-returned tournamentStatusCode — never override it with client-side guesses.

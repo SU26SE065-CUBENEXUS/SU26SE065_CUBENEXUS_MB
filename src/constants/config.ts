@@ -1,11 +1,5 @@
-import { Platform } from 'react-native';
+const configuredApiBaseUrl = process.env.EXPO_PUBLIC_API_BASE_URL?.trim();
 
-// Android Emulators resolve host localhost via 10.0.2.2.
-// iOS Simulators and Web resolve host localhost via 127.0.0.1 / localhost.
-export const API_BASE_URL = Platform.select({
-  android: 'http://10.10.89.95:5212',
-  default: 'http://10.10.89.95:5212',
-});
-
-// export const API_BASE_URL =
-//   'https://cubenexus-api-production.up.railway.app';
+// Keep machine-specific LAN addresses out of source control. Expo inlines
+// EXPO_PUBLIC_* variables from .env files into the application bundle.
+export const API_BASE_URL = (configuredApiBaseUrl || 'http://localhost:5212').replace(/\/+$/, '');
