@@ -284,14 +284,32 @@ export interface FaceSessionStatusDto {
   similarity?: number | null;
 }
 
-async function apiFormFetch<T>(path: string, token: string, form: FormData): Promise<T> {
-  const response = await fetch(`${API_BASE_URL}${path}`, {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${token}`,
-    },
-    body: form,
-  });
+async function apiFormFetch<T>(
+  path: string,
+  token: string,
+  form: FormData,
+  timeoutMs = 45_000
+): Promise<T> {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
+  let response: Response;
+  try {
+    response = await fetch(`${API_BASE_URL}${path}`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+      body: form,
+      signal: controller.signal,
+    });
+  } catch (error: any) {
+    if (error?.name === 'AbortError') {
+      throw new Error('Face verification timed out. Check your connection and try again.');
+    }
+    throw error;
+  } finally {
+    clearTimeout(timeout);
+  }
 
   if (!response.ok) {
     const errorBody = await response.json().catch(() => ({}));
@@ -365,7 +383,8 @@ export async function submitFacePassiveEvidence(
   return apiFormFetch<FaceSessionStatusDto>(
     `/api/face-verification/sessions/${sessionId}/passive-evidence`,
     token,
-    form
+    form,
+    30_000
   );
 }
 
@@ -394,7 +413,8 @@ export async function submitFaceActiveEvidence(
   return apiFormFetch<FaceSessionStatusDto>(
     `/api/face-verification/sessions/${sessionId}/evidence`,
     token,
-    form
+    form,
+    60_000
   );
 }
 
@@ -480,7 +500,7 @@ export async function analyzeFaceFrame(token: string, frameUri: string): Promise
     name: 'frame.jpg',
     type: 'image/jpeg',
   } as any);
-  return apiFormFetch<FaceAnalyzeFrameDto>('/api/face-verification/analyze-frame', token, form);
+  return apiFormFetch<FaceAnalyzeFrameDto>('/api/face-verification/analyze-frame', token, form, 8_000);
 }
 
 // ---------- Mobile Timer (Online Arena Match) Endpoints ----------
