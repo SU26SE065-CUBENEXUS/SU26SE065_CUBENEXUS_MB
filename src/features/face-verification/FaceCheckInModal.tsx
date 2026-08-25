@@ -124,6 +124,7 @@ export default function FaceCheckInModal({
   );
   const [challengeStepIndex, setChallengeStepIndex] = useState(-1);
   const [completedChallengeSteps, setCompletedChallengeSteps] = useState(0);
+  const [isChallengeMode, setIsChallengeMode] = useState(false);
   const [stepCountdown, setStepCountdown] = useState(CHALLENGE_STEP_MS / 1000);
   const [processingSeconds, setProcessingSeconds] = useState(0);
   const [timing, setTiming] = useState<string | null>(null);
@@ -147,6 +148,7 @@ export default function FaceCheckInModal({
       setChallengeActions(session.challenge?.actions ?? []);
       setChallengeStepIndex(-1);
       setCompletedChallengeSteps(0);
+      setIsChallengeMode(false);
       setStepCountdown(CHALLENGE_STEP_MS / 1000);
       setProcessingSeconds(0);
       setTiming(null);
@@ -212,6 +214,7 @@ export default function FaceCheckInModal({
         setChallengeActions(actions);
         setChallengeStepIndex(-1);
         setCompletedChallengeSteps(0);
+        setIsChallengeMode(true);
         setStatusText('Get ready. Follow the actions shown one at a time.');
         setCapturedCount(0);
         setPhase('CHALLENGE');
@@ -249,19 +252,16 @@ export default function FaceCheckInModal({
     const captureStart = Date.now();
     try {
       for (let i = 0; i < PASSIVE_FRAME_COUNT; i++) {
-        setStatusText(`Capturing ${i + 1} of ${PASSIVE_FRAME_COUNT}…`);
+        setStatusText('AI is verifying…');
         const uri = await captureOne();
         if (!uri) throw new Error('Unable to capture photo — try again');
         uris.push(uri);
         setCapturedCount(uris.length);
         await wait(300);
       }
-      const captureMs = Date.now() - captureStart;
       setPhase('SUBMITTING');
-      setStatusText('Uploading photos for AI verification…');
-      const submitStart = Date.now();
+      setStatusText('AI is verifying…');
       const result = await submitFacePassiveEvidence(session.sessionId, token, uris);
-      setTiming(`capture ${captureMs} ms · upload+AI ${Date.now() - submitStart} ms`);
       applyAiStatus(result);
     } catch (err: any) {
       handleFailure(err?.message || 'Passive face verification failed');
@@ -355,11 +355,10 @@ export default function FaceCheckInModal({
       if (allFrames.length === 0) throw new Error('No frames were captured during the challenge');
 
       setChallengeStepIndex(challengeActions.length);
-      setStatusText('All actions done! Uploading photos…');
+      setStatusText('AI is verifying…');
 
       // ── Submit photos only (no video) — fast upload ──
       setPhase('SUBMITTING');
-      const submitStart = Date.now();
       const result = await submitFaceActiveEvidence(
         session.sessionId,
         token,
@@ -367,9 +366,6 @@ export default function FaceCheckInModal({
         null   // no video — videoUri is optional in the API
       );
       if (abortedRef.current) return;
-      setTiming(
-        `${allFrames.length} frames · upload+AI ${Date.now() - submitStart} ms`
-      );
 
       if (isChallengeState(result.state)) {
         handleFailure(
@@ -463,7 +459,7 @@ export default function FaceCheckInModal({
           {isRecording && (
             <View style={styles.recBadge}>
               <MaterialCommunityIcons name="camera" size={13} color="#fff" />
-              <Text style={styles.recText}>CAPTURING</Text>
+              <Text style={styles.recText}>VERIFYING</Text>
             </View>
           )}
         </View>
@@ -472,14 +468,14 @@ export default function FaceCheckInModal({
         <Text style={styles.status}>{statusText}</Text>
 
         {/* ── Challenge action list ── */}
-        {challengeActions.length > 0 && (
+        {isChallengeMode && challengeActions.length > 0 && (
           phase === 'CHALLENGE' ||
           phase === 'RECORDING_CHALLENGE' ||
           phase === 'SUBMITTING'
         ) ? (
           <View style={styles.challengePanel}>
             <Text style={styles.challengeHelp}>
-              Follow each action when it's highlighted. The camera is recording your face the whole time.
+              Follow each action when highlighted.
             </Text>
 
             {challengeActions.map((action, index) => {
@@ -536,13 +532,6 @@ export default function FaceCheckInModal({
           </View>
         ) : null}
 
-        {/* ── Passive capture counter ── */}
-        {capturedCount > 0 && phase === 'CAPTURING' ? (
-          <Text style={styles.meta}>{capturedCount}/{PASSIVE_FRAME_COUNT} frames captured</Text>
-        ) : null}
-
-        {timing ? <Text style={styles.meta}>{timing}</Text> : null}
-
         {/* ── Action buttons ── */}
         <View style={styles.actions}>
           {phase === 'POSITIONING' ? (
@@ -562,11 +551,9 @@ export default function FaceCheckInModal({
             <View style={styles.loadingRow}>
               <ActivityIndicator color="#10b981" />
               <Text style={styles.meta}>
-                {phase === 'SUBMITTING'
-                  ? `Uploading photos · AI verifying${processingSeconds > 0 ? ` · ${processingSeconds}s` : '…'}`
-                  : phase === 'RECORDING_CHALLENGE'
-                  ? 'Follow the steps — photos are being captured…'
-                  : 'Processing…'}
+                {phase === 'RECORDING_CHALLENGE'
+                  ? 'Follow the action instructions…'
+                  : `AI is verifying${processingSeconds > 0 ? ` (${processingSeconds}s)` : '…'}`}
               </Text>
             </View>
           )}

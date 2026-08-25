@@ -49,13 +49,10 @@ export default function FaceEnrollmentModal({
   const [capturedCount, setCapturedCount] = useState(0);
   const [cameraReady, setCameraReady] = useState(false);
   const [viewSize, setViewSize] = useState({ w: 0, h: 0 });
-  const [timing, setTiming] = useState<string | null>(null);
   const busyRef = useRef(false);
 
   const pictureSize = useCompactPictureSize(cameraRef, cameraReady);
 
-  // A failure keeps its own message on screen: no oval, no detection, no hints
-  // until the user asks for another attempt.
   const trackingEnabled = visible && cameraReady && phase === 'POSITIONING';
 
   const analysis = useFaceOvalTracking({
@@ -79,7 +76,6 @@ export default function FaceEnrollmentModal({
     setSession(null);
     setCapturedCount(0);
     setCameraReady(false);
-    setTiming(null);
     busyRef.current = false;
   }, [isUpdate]);
 
@@ -137,28 +133,21 @@ export default function FaceEnrollmentModal({
       setPhase('CAPTURING');
       await waitForCameraIdle(busyRef, 250);
       const uris: string[] = [];
-      const captureStart = Date.now();
       for (let i = 0; i < ENROLL_IMAGE_COUNT; i += 1) {
-        setStatusText(`Capturing ${i + 1}/${ENROLL_IMAGE_COUNT}`);
+        setStatusText('AI is verifying…');
         const uri = await captureOne();
         if (!uri) throw new Error('Unable to capture photo');
         uris.push(uri);
         setCapturedCount(uris.length);
       }
-      const captureMs = Date.now() - captureStart;
 
       setPhase('SUBMITTING');
-      setStatusText(isUpdate ? 'Updating...' : 'Uploading...');
-      const submitStart = Date.now();
+      setStatusText(isUpdate ? 'AI is updating…' : 'AI is verifying…');
       const result = await submitFaceEnrollmentEvidence(
         session.sessionId,
         token,
         uris,
         null
-      );
-      setTiming(
-        `capture ${captureMs} ms · upload+AI ${Date.now() - submitStart} ms` +
-          (pictureSize ? ` · ${pictureSize}` : '')
       );
       if (result.state === 'ENROLLED') {
         setPhase('DONE');
@@ -172,19 +161,18 @@ export default function FaceEnrollmentModal({
       setPhase('FAILED');
       setStatusText(message);
       setCapturedCount(0);
-      // Exit immediately — parent shows the alert; no in-modal retry.
       onClose(message);
     } finally {
       busyRef.current = false;
     }
-  }, [cameraReady, captureOne, isUpdate, onClose, onEnrolled, phase, pictureSize, session, token]);
+  }, [cameraReady, captureOne, isUpdate, onClose, onEnrolled, phase, session, token]);
 
   return (
     <Modal visible={visible} animationType="fade" presentationStyle="fullScreen">
       <View style={styles.container}>
         <View style={styles.header}>
           <Text style={styles.title}>{isUpdate ? 'Update Face ID' : 'Enroll Face ID'}</Text>
-          <Text style={styles.subtitle}>Capture 3 photos — fast processing</Text>
+          <Text style={styles.subtitle}>Fast AI Face Verification</Text>
         </View>
 
         <View
@@ -224,14 +212,10 @@ export default function FaceEnrollmentModal({
         </View>
 
         <Text style={styles.status}>{statusText}</Text>
-        {capturedCount > 0 && phase === 'CAPTURING' ? (
-          <Text style={styles.meta}>{capturedCount}/{ENROLL_IMAGE_COUNT}</Text>
-        ) : null}
-        {timing ? <Text style={styles.meta}>{timing}</Text> : null}
 
         <View style={styles.hintBox}>
-          <Text style={styles.hint}>• Use good lighting, look straight, avoid dark glasses</Text>
-          <Text style={styles.hint}>• Do not record video — only 3 quick photos</Text>
+          <Text style={styles.hint}>• Use good lighting, look straight into the camera</Text>
+          <Text style={styles.hint}>• Avoid dark glasses or accessories covering your face</Text>
         </View>
 
         <View style={styles.actions}>
@@ -239,7 +223,7 @@ export default function FaceEnrollmentModal({
             <TouchableOpacity style={styles.primaryBtn} onPress={runEnrollment}>
               <MaterialCommunityIcons name="camera" size={18} color="#fff" />
               <Text style={styles.primaryBtnText}>
-                {isUpdate ? 'Capture & Update' : 'Capture & Enroll'}
+                {isUpdate ? 'Capture & Update' : 'Start Verification'}
               </Text>
             </TouchableOpacity>
           ) : null}
@@ -247,14 +231,14 @@ export default function FaceEnrollmentModal({
           {phase === 'DONE' ? (
             <TouchableOpacity style={styles.primaryBtn} onPress={() => onClose()}>
               <MaterialCommunityIcons name="check-circle-outline" size={18} color="#fff" />
-              <Text style={styles.primaryBtnText}>Xong</Text>
+              <Text style={styles.primaryBtnText}>Done</Text>
             </TouchableOpacity>
           ) : null}
 
           {(phase === 'LOADING' || phase === 'CAPTURING' || phase === 'SUBMITTING') && (
             <View style={styles.loadingRow}>
               <ActivityIndicator color="#10b981" />
-              <Text style={styles.meta}>{phase === 'SUBMITTING' ? 'AI is processing...' : 'Capturing...'}</Text>
+              <Text style={styles.meta}>AI is verifying...</Text>
             </View>
           )}
 
