@@ -155,7 +155,11 @@ export default function FaceEnrollmentModal({
         onEnrolled();
         return;
       }
-      throw new Error(result.failureReason || result.result?.reason || `Failed (${result.state})`);
+      const failureReason = result.failureReason || result.result?.reason;
+      if (failureReason === 'FACE_ALREADY_ENROLLED') {
+        throw new Error('This face is already registered to another account. Each person can use Face ID for only one account.');
+      }
+      throw new Error(failureReason || `Failed (${result.state})`);
     } catch (err: any) {
       const message = err?.message || 'Enrollment failed';
       setPhase('FAILED');
