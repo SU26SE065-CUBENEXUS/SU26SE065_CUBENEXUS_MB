@@ -17,4 +17,5 @@ echo  - Chay lai npm start, dung IP moi trong QR
 echo.
 
 set BROWSER=none
+set REACT_NATIVE_PACKAGER_HOSTNAME=192.168.88.198
 npx expo start --lan --port 8088
