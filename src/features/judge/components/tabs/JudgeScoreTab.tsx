@@ -1,9 +1,11 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
   GestureResponderEvent,
   Image,
+  Modal,
+  PanResponder,
   ScrollView,
   StyleSheet,
   Text,
@@ -32,6 +34,7 @@ interface Props {
 interface Point {
   x: number;
   y: number;
+  newStroke?: boolean;
 }
 
 export default function JudgeScoreTab({
@@ -247,10 +250,30 @@ export default function JudgeScoreTab({
 
   const hasNextSolve = Boolean(selectedCompetitor?.canSubmit && selectedCompetitor?.nextSolveNumber);
 
-  const handleTouchDraw = (event: GestureResponderEvent) => {
-    const { locationX, locationY } = event.nativeEvent;
-    setDrawingPoints((prev: Point[]) => [...prev, { x: locationX, y: locationY }]);
-  };
+  const [scrollEnabled, setScrollEnabled] = useState(true);
+  const [isSignModalOpen, setIsSignModalOpen] = useState(false);
+
+  const panResponder = useRef(
+    PanResponder.create({
+      onStartShouldSetPanResponder: () => true,
+      onMoveShouldSetPanResponder: () => true,
+      onPanResponderGrant: (evt) => {
+        setScrollEnabled(false);
+        const { locationX, locationY } = evt.nativeEvent;
+        setDrawingPoints((prev: Point[]) => [...prev, { x: locationX, y: locationY, newStroke: true }]);
+      },
+      onPanResponderMove: (evt) => {
+        const { locationX, locationY } = evt.nativeEvent;
+        setDrawingPoints((prev: Point[]) => [...prev, { x: locationX, y: locationY }]);
+      },
+      onPanResponderRelease: () => {
+        setScrollEnabled(true);
+      },
+      onPanResponderTerminate: () => {
+        setScrollEnabled(true);
+      },
+    })
+  ).current;
 
   const clearSignature = () => {
     setDrawingPoints([]);
@@ -371,7 +394,7 @@ export default function JudgeScoreTab({
   }
 
   return (
-    <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
+    <ScrollView scrollEnabled={scrollEnabled} contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
       <View style={styles.topActions}>
         <TouchableOpacity style={[styles.topActionBtn, { borderColor: colors.border }]} onPress={handleBackToRoster}>
           <MaterialCommunityIcons name="arrow-left" size={14} color={colors.text} />
@@ -532,39 +555,207 @@ export default function JudgeScoreTab({
             <MaterialCommunityIcons name="signature" size={14} color={colors.accent} />
             <Text style={[styles.cardTitle, { color: colors.text }]}>COMPETITOR SIGNATURE VERIFICATION</Text>
           </View>
-          <TouchableOpacity onPress={clearSignature}>
-            <Text style={[styles.clearText, { color: colors.primary }]}>Clear Signature</Text>
-          </TouchableOpacity>
-        </View>
-        <Text style={[styles.signSubtitle, { color: colors.textSecondary }]}>
-          Competitor signs in the box below to verify solve result.
-        </Text>
-        <View
-          style={[styles.signPad, { backgroundColor: colors.background, borderColor: colors.border }]}
-          onTouchStart={handleTouchDraw}
-          onTouchMove={handleTouchDraw}
-        >
-          {drawingPoints.map((point: Point, index: number) => (
-            <View
-              key={index}
-              style={[styles.drawPoint, { left: point.x - 2, top: point.y - 2, backgroundColor: colors.text } as any]}
-            />
-          ))}
-          {drawingPoints.length === 0 && (
-            <View style={styles.signPlaceholder as any}>
-              <MaterialCommunityIcons name="gesture-double-tap" size={14} color={colors.border} />
-              <Text style={[styles.signPlaceholderText, { color: colors.textSecondary }]}>Competitor Sign Here</Text>
-            </View>
+          {(drawingPoints.length > 0 || signName.trim().length > 0) && (
+            <TouchableOpacity onPress={clearSignature}>
+              <Text style={[styles.clearText, { color: '#ef4444' }]}>Clear</Text>
+            </TouchableOpacity>
           )}
         </View>
+
+        <Text style={[styles.signSubtitle, { color: colors.textSecondary }]}>
+          Tap below to open full-screen signature pad for smooth competitor signing.
+        </Text>
+
+        {/* Signature Preview & Open Modal Trigger Button */}
+        <TouchableOpacity
+          style={[
+            styles.signPad,
+            {
+              backgroundColor: colors.background,
+              borderColor: drawingPoints.length > 0 ? '#10b981' : colors.border,
+              borderStyle: drawingPoints.length > 0 ? 'solid' : 'dashed',
+              borderWidth: drawingPoints.length > 0 ? 1.5 : 1,
+              justifyContent: 'center',
+              alignItems: 'center',
+              position: 'relative',
+              overflow: 'hidden',
+              minHeight: 110,
+            },
+          ]}
+          onPress={() => setIsSignModalOpen(true)}
+          activeOpacity={0.8}
+        >
+          {drawingPoints.length > 0 ? (
+            <>
+              {drawingPoints.map((point: Point, index: number) => {
+                const prevPoint = index > 0 ? drawingPoints[index - 1] : null;
+                const drawSegment = prevPoint && !point.newStroke;
+
+                let lineSegment: React.ReactNode = null;
+                if (drawSegment && prevPoint) {
+                  const dx = point.x - prevPoint.x;
+                  const dy = point.y - prevPoint.y;
+                  const distance = Math.sqrt(dx * dx + dy * dy);
+                  if (distance >= 0.5) {
+                    const angle = (Math.atan2(dy, dx) * 180) / Math.PI;
+                    const cx = (prevPoint.x + point.x) / 2;
+                    const cy = (prevPoint.y + point.y) / 2;
+                    lineSegment = (
+                      <View
+                        key={`prev-seg-${index}`}
+                        style={{
+                          position: 'absolute',
+                          left: cx - distance / 2,
+                          top: cy - 1.5,
+                          width: distance,
+                          height: 3,
+                          backgroundColor: colors.text,
+                          borderRadius: 1.5,
+                          transform: [{ rotate: `${angle}deg` }],
+                        }}
+                      />
+                    );
+                  }
+                }
+
+                return (
+                  <React.Fragment key={`prev-pt-${index}`}>
+                    {lineSegment}
+                    <View
+                      style={[styles.drawPoint, { left: point.x - 1.5, top: point.y - 1.5, width: 3, height: 3, borderRadius: 1.5, backgroundColor: colors.text } as any]}
+                    />
+                  </React.Fragment>
+                );
+              })}
+              <View style={{ position: 'absolute', bottom: 6, right: 8, backgroundColor: '#10b98120', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6, flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                <MaterialCommunityIcons name="check-circle" size={11} color="#10b981" />
+                <Text style={{ color: '#10b981', fontSize: 10, fontWeight: '800' }}>Tap to Edit Signature</Text>
+              </View>
+            </>
+          ) : (
+            <View style={{ alignItems: 'center', gap: 6, paddingVertical: 14 }}>
+              <View style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: colors.primary + '18', justifyContent: 'center', alignItems: 'center' }}>
+                <MaterialCommunityIcons name="gesture-tap-button" size={24} color={colors.primary} />
+              </View>
+              <Text style={{ color: colors.primary, fontSize: 13, fontWeight: '800' }}>Tap Here to Open Signature Pad</Text>
+              <Text style={{ color: colors.textSecondary, fontSize: 11 }}>Opens full-screen pad for smooth competitor signing</Text>
+            </View>
+          )}
+        </TouchableOpacity>
+
         <TextInput
-          style={[styles.nameInput, { color: colors.text, borderColor: colors.border, backgroundColor: colors.background }]}
+          style={[styles.nameInput, { color: colors.text, borderColor: colors.border, backgroundColor: colors.background, marginTop: 10 }]}
           placeholder="Or enter competitor initials/name"
           placeholderTextColor={colors.textSecondary}
           value={signName}
           onChangeText={setSignName}
         />
       </View>
+
+      {/* FULL SCREEN POPUP SIGNATURE MODAL */}
+      <Modal visible={isSignModalOpen} animationType="slide" onRequestClose={() => setIsSignModalOpen(false)}>
+        <View style={{ flex: 1, backgroundColor: colors.background, padding: 16, paddingTop: 48, justifyContent: 'space-between' }}>
+          {/* Modal Header */}
+          <View>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                <MaterialCommunityIcons name="signature" size={20} color={colors.primary} />
+                <Text style={{ color: colors.text, fontSize: 16, fontWeight: '900' }}>COMPETITOR SIGNATURE VERIFICATION</Text>
+              </View>
+              <TouchableOpacity
+                onPress={() => setIsSignModalOpen(false)}
+                style={{ padding: 6, borderRadius: 8, backgroundColor: colors.backgroundElement }}
+              >
+                <MaterialCommunityIcons name="close" size={20} color={colors.textSecondary} />
+              </TouchableOpacity>
+            </View>
+            <Text style={{ color: colors.textSecondary, fontSize: 12 }}>
+              Competitor <Text style={{ color: colors.text, fontWeight: '800' }}>{selectedCompetitor.competitorName}</Text> signs inside the box below to verify solve result.
+            </Text>
+          </View>
+
+          {/* Large Full-Screen Signature Canvas */}
+          <View
+            style={{
+              flex: 1,
+              marginVertical: 14,
+              backgroundColor: colors.backgroundElement,
+              borderColor: colors.primary + '60',
+              borderWidth: 2,
+              borderRadius: 16,
+              position: 'relative',
+              overflow: 'hidden',
+            }}
+            {...panResponder.panHandlers}
+          >
+            {drawingPoints.map((point: Point, index: number) => {
+              const prevPoint = index > 0 ? drawingPoints[index - 1] : null;
+              const drawSegment = prevPoint && !point.newStroke;
+
+              let lineSegment: React.ReactNode = null;
+              if (drawSegment && prevPoint) {
+                const dx = point.x - prevPoint.x;
+                const dy = point.y - prevPoint.y;
+                const distance = Math.sqrt(dx * dx + dy * dy);
+                if (distance >= 0.5) {
+                  const angle = (Math.atan2(dy, dx) * 180) / Math.PI;
+                  const cx = (prevPoint.x + point.x) / 2;
+                  const cy = (prevPoint.y + point.y) / 2;
+                  lineSegment = (
+                    <View
+                      key={`modal-seg-${index}`}
+                      style={{
+                        position: 'absolute',
+                        left: cx - distance / 2,
+                        top: cy - 1.5,
+                        width: distance,
+                        height: 3.5,
+                        backgroundColor: colors.text,
+                        borderRadius: 1.75,
+                        transform: [{ rotate: `${angle}deg` }],
+                      }}
+                    />
+                  );
+                }
+              }
+
+              return (
+                <React.Fragment key={`modal-pt-${index}`}>
+                  {lineSegment}
+                  <View
+                    style={[styles.drawPoint, { left: point.x - 1.75, top: point.y - 1.75, width: 3.5, height: 3.5, borderRadius: 1.75, backgroundColor: colors.text } as any]}
+                  />
+                </React.Fragment>
+              );
+            })}
+            {drawingPoints.length === 0 && (
+              <View style={styles.signPlaceholder as any}>
+                <MaterialCommunityIcons name="gesture-double-tap" size={32} color={colors.primary + '50'} />
+                <Text style={[styles.signPlaceholderText, { color: colors.textSecondary, fontSize: 14, marginTop: 6 }]}>
+                  Draw Signature Here
+                </Text>
+              </View>
+            )}
+          </View>
+
+          {/* Modal Action Buttons */}
+          <View style={{ flexDirection: 'row', gap: 10 }}>
+            <TouchableOpacity
+              style={{ flex: 1, paddingVertical: 14, borderRadius: 12, borderWidth: 1, borderColor: '#ef444450', backgroundColor: '#ef444410', alignItems: 'center' }}
+              onPress={clearSignature}
+            >
+              <Text style={{ color: '#ef4444', fontWeight: '800', fontSize: 13 }}>🗑️ Clear</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={{ flex: 2, paddingVertical: 14, borderRadius: 12, backgroundColor: '#10b981', alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: 6 }}
+              onPress={() => setIsSignModalOpen(false)}
+            >
+              <MaterialCommunityIcons name="check-circle" size={18} color="#fff" />
+              <Text style={{ color: '#fff', fontWeight: '900', fontSize: 13 }}>CONFIRM SIGNATURE</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
 
       <TouchableOpacity
         style={[styles.submitBtn, { backgroundColor: isFormValid ? '#10b981' : colors.border, opacity: isFormValid ? 1 : 0.5 }]}

@@ -128,7 +128,15 @@ export default function JudgeStationTab({
           </View>
 
           {/* Tournament Selection */}
-          <Text style={[styles.fieldLabel, { color: colors.textSecondary }]}>1. Tournament</Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 4 }}>
+            <Text style={[styles.fieldLabel, { color: colors.textSecondary }]}>1. Tournament</Text>
+            {tournaments.length === 1 && (
+              <View style={{ backgroundColor: colors.primary + '18', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 6, flexDirection: 'row', alignItems: 'center', gap: 3 }}>
+                <MaterialCommunityIcons name="lock-outline" size={11} color={colors.primary} />
+                <Text style={{ color: colors.primary, fontSize: 10, fontWeight: '800' }}>ASSIGNED</Text>
+              </View>
+            )}
+          </View>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipRow}>
             {tournaments.map(t => {
               const isSelected = selectedTournamentId === t.id;

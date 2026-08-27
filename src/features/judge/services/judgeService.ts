@@ -207,14 +207,50 @@ export function useJudgeLaneConfig(token: string | null) {
     async function loadTournaments() {
       setIsLoadingTournaments(true);
       try {
-        const tournList = await getPublicTournaments();
+        const tournList = await getPublicTournaments().catch(() => []);
         const payload = token ? parseJwtClaims(token) : null;
-        const assignedId = payload?.tournament_id || payload?.TournamentId || payload?.tournamentId;
-        const filtered = assignedId
-          ? tournList.filter(t => t.id === assignedId)
-          : tournList;
+        const assignedId =
+          payload?.tournament_id ||
+          payload?.TournamentId ||
+          payload?.tournamentId ||
+          payload?.assignedTournamentId ||
+          payload?.assigned_tournament_id;
+        const assignedName =
+          payload?.tournament_name ||
+          payload?.TournamentName ||
+          payload?.tournamentName ||
+          payload?.assignedTournamentName ||
+          payload?.assigned_tournament_name;
 
-        const finalTournaments = filtered.length > 0 ? filtered : tournList;
+        let finalTournaments: any[] = [];
+
+        if (assignedId) {
+          const matched = tournList.find(
+            (t: any) => String(t.id).toLowerCase() === String(assignedId).toLowerCase()
+          );
+          if (matched) {
+            finalTournaments = [matched];
+          } else {
+            try {
+              const detail = await getTournamentById(assignedId);
+              if (detail && detail.id) {
+                finalTournaments = [detail];
+              }
+            } catch (e) {
+              console.warn('Failed to fetch assigned tournament details by ID:', e);
+            }
+
+            if (finalTournaments.length === 0) {
+              finalTournaments = [{
+                id: assignedId,
+                name: assignedName || 'Assigned Tournament',
+              }];
+            }
+          }
+        } else {
+          finalTournaments = tournList;
+        }
+
         setTournaments(finalTournaments);
         if (finalTournaments.length > 0) {
           setSelectedTournamentId(finalTournaments[0].id);
@@ -235,8 +271,14 @@ export function useJudgeLaneConfig(token: string | null) {
       if (payload.station_number) {
         setStationNumber(String(payload.station_number));
       }
-      if (payload.tournament_id && tournaments.some(t => t.id === payload.tournament_id)) {
-        setSelectedTournamentId(payload.tournament_id);
+      const assignedId =
+        payload.tournament_id ||
+        payload.TournamentId ||
+        payload.tournamentId ||
+        payload.assignedTournamentId ||
+        payload.assigned_tournament_id;
+      if (assignedId) {
+        setSelectedTournamentId(assignedId);
       }
     }
   }, [token, tournaments]);
@@ -736,12 +778,31 @@ export function useCheckInDesk(token: string | null) {
   };
 }
 
-function serializeDrawingPointsToSvg(points: Array<{ x: number; y: number }>, width = 340, height = 120): string {
+function serializeDrawingPointsToSvg(
+  points: Array<{ x: number; y: number; newStroke?: boolean }>
+): string {
   if (!points || points.length === 0) return '';
+
+  const xs = points.map((p) => p.x);
+  const ys = points.map((p) => p.y);
+
+  const minX = Math.min(...xs);
+  const maxX = Math.max(...xs);
+  const minY = Math.min(...ys);
+  const maxY = Math.max(...ys);
+
+  const padding = 12;
+  const vbMinX = Math.max(0, Math.floor(minX - padding));
+  const vbMinY = Math.max(0, Math.floor(minY - padding));
+  const vbWidth = Math.max(60, Math.ceil(maxX - minX + padding * 2));
+  const vbHeight = Math.max(40, Math.ceil(maxY - minY + padding * 2));
+
   const pathData = points
-    .map((p, idx) => `${idx === 0 ? 'M' : 'L'} ${p.x.toFixed(1)} ${p.y.toFixed(1)}`)
+    .map((p, idx) => `${idx === 0 || p.newStroke ? 'M' : 'L'} ${p.x.toFixed(1)} ${p.y.toFixed(1)}`)
     .join(' ');
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${width} ${height}" width="${width}" height="${height}"><path d="${pathData}" fill="none" stroke="#2563eb" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${vbMinX} ${vbMinY} ${vbWidth} ${vbHeight}" width="${vbWidth}" height="${vbHeight}" preserveAspectRatio="xMidYMid meet"><path d="${pathData}" fill="none" stroke="#2563eb" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+
   return `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`;
 }
 
