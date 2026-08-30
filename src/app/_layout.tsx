@@ -1,9 +1,12 @@
 import { Stack } from 'expo-router';
 import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
-import { useColorScheme, StatusBar } from 'react-native';
+import { useColorScheme, StatusBar, LogBox } from 'react-native';
 
 import { AnimatedSplashOverlay } from '@/components/animated-icon';
 import { AuthProvider } from '@/contexts/AuthContext';
+
+// Ignore LogBox overlays on mobile screen during development
+LogBox.ignoreAllLogs();
 
 export default function RootLayout() {
   const colorScheme = useColorScheme();
