@@ -708,7 +708,7 @@ export function useCheckInDesk(token: string | null) {
       const code = err?.errorCode;
       const message =
         code === 'FACE_NOT_ENROLLED'
-          ? (err.message || 'The competitor has not enrolled Face ID in Profile. Judges cannot enroll it for them.')
+          ? (err.message || 'The competitor has not enrolled Facial Biometrics in Profile. Judges cannot enroll it for them.')
           : (err.message || 'Unable to create the face verification session.');
       setLastResult({
         success: false,

@@ -32,20 +32,20 @@ function extractQrToken(data: string): string | null {
   let raw = data.trim();
   // Decode URL encoding (handles both lowercase %7b and uppercase %7B)
   if (raw.toLowerCase().startsWith('%7b') || raw.toLowerCase().startsWith('%22') || raw.toLowerCase().startsWith('%257b')) {
-    try { 
+    try {
       raw = decodeURIComponent(raw);
       console.log('[CheckIn extractQrToken] URL-decoded raw:', raw);
-    } catch (e: any) { 
+    } catch (e: any) {
       console.log('[CheckIn extractQrToken] URL-decode error:', e.message);
-      return null; 
+      return null;
     }
   }
-  
+
   // Double-check if decoded string still has encoded wrappers
   if (raw.toLowerCase().startsWith('%7b') || raw.toLowerCase().startsWith('%22')) {
     try {
       raw = decodeURIComponent(raw);
-    } catch {}
+    } catch { }
   }
 
   // Case 1: JSON payload
@@ -58,10 +58,10 @@ function extractQrToken(data: string): string | null {
       } else {
         console.log('[CheckIn extractQrToken] Rejected: missing RegistrationId property');
       }
-    } catch (e: any) { 
+    } catch (e: any) {
       console.log('[CheckIn extractQrToken] JSON parse error:', e.message);
     }
-  } 
+  }
 
   // Case 2: Raw string token (like f278516635684b5592b364d881057afc seed tokens)
   if (raw.length >= 20 && !raw.includes('<') && !raw.includes('/') && !raw.includes(' ') && !raw.includes(':')) {
@@ -184,8 +184,8 @@ export default function CheckInScanTab({ isScanning, lastResult, onScan, onClear
         <View style={styles.instructionText}>
           <Text style={styles.instructionTitle}>Competitor Check-in Desk</Text>
           <Text style={[styles.instructionSub, { color: colors.textSecondary }]}>
-            Scan QR → verify the competitor's enrolled Face ID → complete check-in.
-            (Judges do not enroll Face ID for competitors.)
+            Scan QR → verify the competitor's enrolled Facial Biometrics → complete check-in.
+            (Judges do not enroll Facial Biometrics for competitors.)
           </Text>
         </View>
       </View>

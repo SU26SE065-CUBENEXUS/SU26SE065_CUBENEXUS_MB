@@ -103,7 +103,7 @@ export default function ProfileScreen() {
 
   const handleOpenFaceEnrollment = () => {
     if (!accessToken) {
-      Alert.alert('Auth Error', 'You must be logged in to enroll Face ID.');
+      Alert.alert('Auth Error', 'You must be logged in to enroll Facial Biometrics.');
       return;
     }
 
@@ -119,7 +119,7 @@ export default function ProfileScreen() {
   const handleConfirmUpdateFace = () => {
     setShowFaceStatusModal(false);
     Alert.alert(
-      'Update Face ID?',
+      'Update Facial Biometrics?',
       'The current face template will be replaced. Only 3 quick photos are required.',
       [
         { text: 'Cancel', style: 'cancel' },
@@ -141,7 +141,7 @@ export default function ProfileScreen() {
       return;
     }
     if (!faceStatus?.isEnrolled) {
-      Alert.alert('Not Enrolled', 'Enroll Face ID before starting verification.');
+      Alert.alert('Not Enrolled', 'Enroll Facial Biometrics before starting verification.');
       return;
     }
     setSelfTestStarting(true);
@@ -211,8 +211,8 @@ export default function ProfileScreen() {
       'Are you sure you want to sign out from CubeNexus?',
       [
         { text: 'Cancel', style: 'cancel' },
-        { 
-          text: 'Sign Out', 
+        {
+          text: 'Sign Out',
           style: 'destructive',
           onPress: () => {
             logout();
@@ -245,14 +245,14 @@ export default function ProfileScreen() {
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
-        
+
         {/* Header */}
         <View style={[styles.header, { borderBottomColor: colors.border }]}>
           <Text style={[styles.headerTitle, { color: colors.text }]}>My Profile & Settings</Text>
         </View>
 
         <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-          
+
           {/* Avatar & Header Card */}
           <View style={styles.profileHeaderCard}>
             <View style={[styles.avatar, { backgroundColor: colors.primary }]}>
@@ -264,7 +264,7 @@ export default function ProfileScreen() {
             <Text style={[styles.profileEmail, { color: colors.textSecondary }]}>
               {user?.email || 'competitor@cubenexus.com'}
             </Text>
-            
+
             <View style={{ flexDirection: 'row', gap: 8, marginTop: 10 }}>
               <View style={[styles.roleBadge, { borderColor: colors.primary + '40', backgroundColor: colors.primary + '15' }]}>
                 <Text style={[styles.roleBadgeText, { color: colors.primary }]}>
@@ -295,7 +295,7 @@ export default function ProfileScreen() {
               />
             </View>
             <View style={{ flex: 1 }}>
-              <Text style={[styles.bannerTitle, { color: colors.text }]}>Face ID / Face Enrollment</Text>
+              <Text style={[styles.bannerTitle, { color: colors.text }]}>Facial Biometrics / Face Enrollment</Text>
               <Text style={[styles.bannerSub, { color: colors.textSecondary }]}>
                 {faceLoading
                   ? 'Checking status...'
@@ -337,7 +337,7 @@ export default function ProfileScreen() {
               ) : (
                 <>
                   <MaterialCommunityIcons name="shield-check" size={20} color="#fff" />
-                  <Text style={styles.verifyFaceBtnText}>VERIFY — Test Face ID</Text>
+                  <Text style={styles.verifyFaceBtnText}>VERIFY — Test Facial Biometrics</Text>
                 </>
               )}
             </TouchableOpacity>
@@ -419,7 +419,7 @@ export default function ProfileScreen() {
           style={styles.modalBackdrop}
         >
           <View style={[styles.modalCard, { backgroundColor: colors.background, borderColor: colors.border }]}>
-            
+
             {/* Modal Header */}
             <View style={[styles.modalHeader, { borderBottomColor: colors.border }]}>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
@@ -440,7 +440,7 @@ export default function ProfileScreen() {
               </View>
             ) : (
               <ScrollView contentContainerStyle={styles.modalFormContent} showsVerticalScrollIndicator={false}>
-                
+
                 {/* Email Read-only Field */}
                 <View style={styles.inputGroup}>
                   <Text style={[styles.inputLabel, { color: colors.textSecondary }]}>ACCOUNT EMAIL (READ-ONLY)</Text>
@@ -541,8 +541,8 @@ export default function ProfileScreen() {
             Alert.alert(
               'VERIFIED',
               faceEnrollMode === 'update'
-                ? 'Face ID was updated successfully.'
-                : 'Face ID was enrolled successfully. You can now check in offline using face verification.'
+                ? 'Facial Biometrics was updated successfully.'
+                : 'Facial Biometrics was enrolled successfully. You can now check in offline using face verification.'
             );
           }}
           onClose={(message) => {
@@ -569,7 +569,7 @@ export default function ProfileScreen() {
             setSelfTestSession(null);
             Alert.alert(
               'VERIFIED',
-              'AI face verification succeeded — matched the enrolled Face ID.'
+              'AI face verification succeeded — matched the enrolled Facial Biometrics.'
             );
           }}
           onCancel={(message) => {
@@ -593,7 +593,7 @@ export default function ProfileScreen() {
             <View style={[styles.modalHeader, { borderBottomColor: colors.border }]}>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
                 <MaterialCommunityIcons name="check-decagram" size={22} color="#10b981" />
-                <Text style={[styles.modalTitle, { color: colors.text }]}>Face ID VERIFIED</Text>
+                <Text style={[styles.modalTitle, { color: colors.text }]}>Facial Biometrics VERIFIED</Text>
               </View>
               <TouchableOpacity onPress={() => setShowFaceStatusModal(false)}>
                 <MaterialCommunityIcons name="close" size={22} color={colors.text} />
@@ -617,7 +617,7 @@ export default function ProfileScreen() {
                 Model: {faceStatus?.modelVersion || 'buffalo_l'}
               </Text>
               <Text style={[styles.faceStatusHint, { color: colors.textSecondary }]}>
-                Face ID is enrolled. Tap Verify to test the live face against the saved template.
+                Facial Biometrics is enrolled. Tap Verify to test the live face against the saved template.
               </Text>
 
               <TouchableOpacity
@@ -630,7 +630,7 @@ export default function ProfileScreen() {
                 ) : (
                   <>
                     <MaterialCommunityIcons name="shield-check" size={18} color="#fff" />
-                    <Text style={styles.saveBtnText}>Verify — Test Face ID</Text>
+                    <Text style={styles.saveBtnText}>Verify — Test Facial Biometrics</Text>
                   </>
                 )}
               </TouchableOpacity>
@@ -640,7 +640,7 @@ export default function ProfileScreen() {
                 onPress={handleConfirmUpdateFace}
               >
                 <MaterialCommunityIcons name="face-recognition" size={18} color="#fff" />
-                <Text style={styles.saveBtnText}>Update Face ID</Text>
+                <Text style={styles.saveBtnText}>Update Facial Biometrics</Text>
               </TouchableOpacity>
 
               <TouchableOpacity
@@ -669,7 +669,7 @@ const styles = StyleSheet.create({
   },
   headerTitle: { fontSize: 18, fontWeight: '900', letterSpacing: -0.2 },
   scrollContent: { paddingHorizontal: 18, paddingTop: 20, paddingBottom: 40 },
-  
+
   // Profile Header Card
   profileHeaderCard: { alignItems: 'center', marginBottom: 20 },
   avatar: { width: 80, height: 80, borderRadius: 40, justifyContent: 'center', alignItems: 'center', marginBottom: 12 },

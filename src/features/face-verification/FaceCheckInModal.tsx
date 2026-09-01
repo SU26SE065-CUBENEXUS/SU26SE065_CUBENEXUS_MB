@@ -53,25 +53,25 @@ const wait = (ms: number) => new Promise<void>(resolve => setTimeout(resolve, ms
 
 function actionInstruction(action: string): string {
   switch (action.trim().toUpperCase()) {
-    case 'TURN_LEFT':      return 'Turn your head LEFT';
-    case 'TURN_RIGHT':     return 'Turn your head RIGHT';
-    case 'RETURN_CENTER':  return 'Return to center';
-    case 'BLINK':          return 'Blink naturally';
-    case 'NOD':            return 'Nod your head';
-    case 'SMILE':          return 'Smile naturally';
-    default:               return action.replace(/_/g, ' ').toLowerCase();
+    case 'TURN_LEFT': return 'Turn your head LEFT';
+    case 'TURN_RIGHT': return 'Turn your head RIGHT';
+    case 'RETURN_CENTER': return 'Return to center';
+    case 'BLINK': return 'Blink naturally';
+    case 'NOD': return 'Nod your head';
+    case 'SMILE': return 'Smile naturally';
+    default: return action.replace(/_/g, ' ').toLowerCase();
   }
 }
 
 function actionIcon(action: string): string {
   switch (action.trim().toUpperCase()) {
-    case 'TURN_LEFT':      return 'arrow-left-circle-outline';
-    case 'TURN_RIGHT':     return 'arrow-right-circle-outline';
-    case 'RETURN_CENTER':  return 'image-filter-center-focus';
-    case 'BLINK':          return 'eye-outline';
-    case 'NOD':            return 'arrow-up-down';
-    case 'SMILE':          return 'emoticon-happy-outline';
-    default:               return 'gesture';
+    case 'TURN_LEFT': return 'arrow-left-circle-outline';
+    case 'TURN_RIGHT': return 'arrow-right-circle-outline';
+    case 'RETURN_CENTER': return 'image-filter-center-focus';
+    case 'BLINK': return 'eye-outline';
+    case 'NOD': return 'arrow-up-down';
+    case 'SMILE': return 'emoticon-happy-outline';
+    default: return 'gesture';
   }
 }
 
@@ -370,8 +370,8 @@ export default function FaceCheckInModal({
       if (isChallengeState(result.state)) {
         handleFailure(
           result.failureReason ||
-            result.result?.reason ||
-            'Challenge not completed. Please restart face verification.'
+          result.result?.reason ||
+          'Challenge not completed. Please restart face verification.'
         );
         return;
       }
@@ -414,13 +414,13 @@ export default function FaceCheckInModal({
         {/* ── Header ── */}
         <View style={styles.header}>
           <Text style={styles.title}>
-            {mode === 'self-test' ? '🪪 Test Face ID' : '🔐 Face Verification'}
+            {mode === 'self-test' ? ' Test Facial Biometrics' : ' Facial Biometrics Verification'}
           </Text>
           <Text style={styles.subtitle}>{session.playerName || 'Competitor'}</Text>
           <Text style={styles.note}>
             {mode === 'self-test'
-              ? 'Live face will be compared against your enrolled Face ID template'
-              : 'Your face will be verified against your registered Face ID'}
+              ? 'Live face will be compared against your enrolled Facial Biometrics template'
+              : 'Your face will be verified against your registered Facial Biometrics'}
           </Text>
         </View>
 

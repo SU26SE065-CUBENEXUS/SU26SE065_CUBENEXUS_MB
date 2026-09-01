@@ -157,7 +157,7 @@ export default function FaceEnrollmentModal({
       }
       const failureReason = result.failureReason || result.result?.reason;
       if (failureReason === 'FACE_ALREADY_ENROLLED') {
-        throw new Error('This face is already registered to another account. Each person can use Face ID for only one account.');
+        throw new Error('This face is already registered to another account. Each person can use Facial Biometrics for only one account.');
       }
       throw new Error(failureReason || `Failed (${result.state})`);
     } catch (err: any) {
@@ -175,7 +175,7 @@ export default function FaceEnrollmentModal({
     <Modal visible={visible} animationType="fade" presentationStyle="fullScreen">
       <View style={styles.container}>
         <View style={styles.header}>
-          <Text style={styles.title}>{isUpdate ? 'Update Face ID' : 'Enroll Face ID'}</Text>
+          <Text style={styles.title}>{isUpdate ? 'Update Facial Biometrics' : 'Enroll Facial Biometrics'}</Text>
           <Text style={styles.subtitle}>Fast AI Face Verification</Text>
         </View>
 
