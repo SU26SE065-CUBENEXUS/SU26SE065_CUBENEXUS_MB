@@ -1,4 +1,4 @@
-import { API_BASE_URL } from '@/constants/config';
+import { getApiBaseUrl } from '@/constants/config';
 
 export interface UserProfileDto {
   id: string;
@@ -19,7 +19,7 @@ export interface UpdateProfileRequestDto {
 }
 
 export async function fetchMyProfile(token: string): Promise<UserProfileDto> {
-  const baseUrl = API_BASE_URL.replace(/\/+$/, '');
+  const baseUrl = getApiBaseUrl().replace(/\/+$/, '');
   const res = await fetch(`${baseUrl}/api/auth/My-Profile`, {
     headers: {
       Authorization: `Bearer ${token}`,
@@ -41,7 +41,7 @@ export async function updateMyProfile(
   token: string,
   data: UpdateProfileRequestDto
 ): Promise<UserProfileDto> {
-  const baseUrl = API_BASE_URL.replace(/\/+$/, '');
+  const baseUrl = getApiBaseUrl().replace(/\/+$/, '');
   const res = await fetch(`${baseUrl}/api/auth/Update-Profile`, {
     method: 'PUT',
     headers: {

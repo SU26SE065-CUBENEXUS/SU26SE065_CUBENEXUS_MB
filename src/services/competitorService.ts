@@ -1,9 +1,9 @@
-import { API_BASE_URL } from '@/constants/config';
+import { getApiBaseUrl } from '@/constants/config';
 import { RegistrationDto, TournamentDetailDto } from '@/types/competitor';
 
 export async function fetchCompetitorRegistrations(token: string): Promise<RegistrationDto[]> {
   try {
-    const baseUrl = API_BASE_URL.replace(/\/+$/, '');
+    const baseUrl = getApiBaseUrl().replace(/\/+$/, '');
     const res = await fetch(`${baseUrl}/api/me/registrations`, {
       headers: {
         Authorization: `Bearer ${token}`,
@@ -27,7 +27,7 @@ export async function fetchCompetitorRegistrations(token: string): Promise<Regis
 
 export async function fetchPublicTournaments(): Promise<TournamentDetailDto[]> {
   try {
-    const baseUrl = API_BASE_URL.replace(/\/+$/, '');
+    const baseUrl = getApiBaseUrl().replace(/\/+$/, '');
     const res = await fetch(`${baseUrl}/api/tournaments`, {
       headers: {
         'Content-Type': 'application/json',
@@ -49,7 +49,7 @@ export async function fetchPublicTournaments(): Promise<TournamentDetailDto[]> {
 
 export async function fetchTournamentById(id: string): Promise<TournamentDetailDto | null> {
   try {
-    const baseUrl = API_BASE_URL.replace(/\/+$/, '');
+    const baseUrl = getApiBaseUrl().replace(/\/+$/, '');
     const res = await fetch(`${baseUrl}/api/tournaments/${id}`, {
       headers: {
         'Content-Type': 'application/json',
@@ -74,7 +74,7 @@ export async function registerTournament(
   token: string,
   eventIds: string[]
 ): Promise<any> {
-  const baseUrl = API_BASE_URL.replace(/\/+$/, '');
+  const baseUrl = getApiBaseUrl().replace(/\/+$/, '');
   const res = await fetch(`${baseUrl}/api/tournament-registration/tournaments/${tournamentId}/register`, {
     method: 'POST',
     headers: {
@@ -101,11 +101,14 @@ export async function cancelRegistration(
   token: string,
   registrationId: string,
 ): Promise<RegistrationDto> {
-  const res = await fetch(`${API_BASE_URL}/api/tournament-registration/registrations/${registrationId}/cancel`, {
+  const baseUrl = getApiBaseUrl().replace(/\/+$/, '');
+  const res = await fetch(`${baseUrl}/api/tournament-registration/registrations/${registrationId}/cancel`, {
     method: 'POST',
     headers: {
       Authorization: `Bearer ${token}`,
       'Content-Type': 'application/json',
+      'ngrok-skip-browser-warning': 'true',
+      'bypass-tunnel-reminder': 'true',
     },
   });
 

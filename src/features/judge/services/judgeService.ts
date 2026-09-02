@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import * as signalR from '@microsoft/signalr';
-import { API_BASE_URL } from '@/constants/config';
+import { getApiBaseUrl } from '@/constants/config';
 import {
   checkInRegistration,
   getJudgeStationRoster,
@@ -390,9 +390,13 @@ export function useJudgeLaneConfig(token: string | null) {
       stationNumber: Number(stationNumber),
     };
 
-    const hubUrl = `${API_BASE_URL}/hubs/tournament`;
+    const hubUrl = `${getApiBaseUrl().replace(/\/+$/, '')}/hubs/tournament`;
     const connection = new signalR.HubConnectionBuilder()
-      .withUrl(hubUrl)
+      .withUrl(hubUrl, {
+        headers: {
+          'ngrok-skip-browser-warning': 'true',
+        },
+      })
       .withAutomaticReconnect()
       .build();
 

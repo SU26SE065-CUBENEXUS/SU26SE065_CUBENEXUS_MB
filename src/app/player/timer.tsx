@@ -9,7 +9,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { useAuth } from '@/contexts/AuthContext';
 import { connectMobileTimer, submitMobileTimerTime, getCurrentPracticeAttempt, finalizePracticeAttempt, createPracticeAttempt, handsOnPracticeAttempt, readyPracticeAttempt, handsOffPracticeAttempt, abortPracticeAttempt, getPracticeSessionDetail, connectPracticeSession, disconnectPracticeSession, apiFetch } from '@/constants/api';
-import { API_BASE_URL } from '@/constants/config';
+import { getApiBaseUrl } from '@/constants/config';
 import * as signalR from '@microsoft/signalr';
 import * as Device from 'expo-device';
 
@@ -222,8 +222,9 @@ export default function PracticeTimer() {
     if (!accessToken) return;
 
     let isMounted = true;
+    const hubUrl = `${getApiBaseUrl().replace(/\/+$/, '')}/hubs/online-arena`;
     const conn = new signalR.HubConnectionBuilder()
-      .withUrl(`${API_BASE_URL}/hubs/online-arena`, {
+      .withUrl(hubUrl, {
         accessTokenFactory: () => accessToken,
         headers: {
           'ngrok-skip-browser-warning': 'true',

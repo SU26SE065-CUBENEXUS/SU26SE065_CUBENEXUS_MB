@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { API_BASE_URL } from '@/constants/config';
+import { API_BASE_URL, initApiBaseUrl, getApiBaseUrl } from '@/constants/config';
 
 export interface AuthUser {
   id: string;
@@ -152,6 +152,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     const restoreSession = async () => {
       try {
+        await initApiBaseUrl();
         const savedToken = await storage.getItem('mobile_access_token');
         if (savedToken) {
           const parsedUser = buildUserFromToken(savedToken);
@@ -172,7 +173,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const login = useCallback(async (email: string, password: string) => {
-    const baseUrl = API_BASE_URL.replace(/\/+$/, '');
+    const baseUrl = getApiBaseUrl().replace(/\/+$/, '');
     const res = await fetch(`${baseUrl}/api/auth/login`, {
       method: 'POST',
       headers: {

@@ -1,4 +1,4 @@
-import { API_BASE_URL } from './config';
+import { getApiBaseUrl } from './config';
 
 export interface VerifyJudgeStationByStationDto {
   qrToken: string;
@@ -145,7 +145,7 @@ export async function apiFetch<T>(path: string, token?: string, options: Request
     ...(token ? { Authorization: `Bearer ${token}` } : {}),
   } as Record<string, string>;
 
-  const baseUrl = API_BASE_URL.replace(/\/+$/, '');
+  const baseUrl = getApiBaseUrl().replace(/\/+$/, '');
   const url = path.startsWith('/') ? `${baseUrl}${path}` : `${baseUrl}/${path}`;
 
   const response = await fetch(url, {
@@ -300,10 +300,14 @@ async function apiFormFetch<T>(
   const timeout = setTimeout(() => controller.abort(), timeoutMs);
   let response: Response;
   try {
-    response = await fetch(`${API_BASE_URL}${path}`, {
+    const baseUrl = getApiBaseUrl().replace(/\/+$/, '');
+    const cleanPath = path.startsWith('/') ? path : `/${path}`;
+    response = await fetch(`${baseUrl}${cleanPath}`, {
       method: 'POST',
       headers: {
         Authorization: `Bearer ${token}`,
+        'ngrok-skip-browser-warning': 'true',
+        'bypass-tunnel-reminder': 'true',
       },
       body: form,
       signal: controller.signal,

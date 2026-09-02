@@ -11,6 +11,8 @@ import {
   KeyboardAvoidingView,
   Platform,
   ScrollView,
+  Modal,
+  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -18,6 +20,12 @@ import { useAuth } from '@/contexts/AuthContext';
 import { Colors } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import {
+  getApiBaseUrl,
+  saveCustomApiBaseUrl,
+  resetCustomApiBaseUrl,
+  DEFAULT_API_BASE_URL,
+} from '@/constants/config';
 
 export default function LoginScreen() {
   const colors = useTheme();
@@ -32,6 +40,58 @@ export default function LoginScreen() {
 
   const [emailFocused, setEmailFocused] = useState(false);
   const [passwordFocused, setPasswordFocused] = useState(false);
+
+  // ── Secret Server Switcher (Tap logo 5 times) ──
+  const [serverModalVisible, setServerModalVisible] = useState(false);
+  const [customUrlInput, setCustomUrlInput] = useState('');
+  const [currentApiUrl, setCurrentApiUrl] = useState(getApiBaseUrl());
+  const [tapCount, setTapCount] = useState(0);
+  const [lastTapTime, setLastTapTime] = useState(0);
+
+  const handleLogoTap = () => {
+    const now = Date.now();
+    if (now - lastTapTime > 2000) {
+      setTapCount(1);
+    } else {
+      const next = tapCount + 1;
+      setTapCount(next);
+      if (next >= 5) {
+        setCustomUrlInput(getApiBaseUrl());
+        setCurrentApiUrl(getApiBaseUrl());
+        setServerModalVisible(true);
+        setTapCount(0);
+      }
+    }
+    setLastTapTime(now);
+  };
+
+  const handleSaveCustomUrl = async () => {
+    const trimmed = customUrlInput.trim();
+    if (!trimmed.startsWith('http://') && !trimmed.startsWith('https://')) {
+      Alert.alert('URL không hợp lệ', 'Địa chỉ URL phải bắt đầu bằng http:// hoặc https://');
+      return;
+    }
+    try {
+      const saved = await saveCustomApiBaseUrl(trimmed);
+      setCurrentApiUrl(saved);
+      setServerModalVisible(false);
+      Alert.alert('Thành công', `Đã áp dụng Server API mới:\n\n${saved}`);
+    } catch (e: any) {
+      Alert.alert('Lỗi', e.message || 'Không thể lưu URL Server');
+    }
+  };
+
+  const handleResetDefault = async () => {
+    try {
+      const def = await resetCustomApiBaseUrl();
+      setCustomUrlInput(def);
+      setCurrentApiUrl(def);
+      setServerModalVisible(false);
+      Alert.alert('Khôi phục', `Đã quay về Server mặc định:\n\n${def}`);
+    } catch (e: any) {
+      Alert.alert('Lỗi', e.message || 'Không thể khôi phục URL');
+    }
+  };
 
   const handleLogin = async () => {
     if (!email.trim() || !password.trim()) {
@@ -76,13 +136,17 @@ export default function LoginScreen() {
             <View style={styles.innerContainer}>
               {/* Header Section */}
             <View style={styles.header}>
-              <View style={[styles.logoContainer, { backgroundColor: colors.background, borderColor: colors.border }]}>
+              <TouchableOpacity
+                activeOpacity={0.8}
+                onPress={handleLogoTap}
+                style={[styles.logoContainer, { backgroundColor: colors.background, borderColor: colors.border }]}
+              >
                 <Image
                   source={require('@/assets/images/logoCube.png')}
                   style={styles.logoImage}
                   resizeMode="contain"
                 />
-              </View>
+              </TouchableOpacity>
 
               <View style={styles.brandRow}>
                 <Text style={[styles.brandText, { color: colors.text }]}>CUBE</Text>
@@ -230,6 +294,91 @@ export default function LoginScreen() {
           </ScrollView>
         </SafeAreaView>
       </KeyboardAvoidingView>
+
+      {/* ── Secret Server Switcher Modal (Chạm 5 lần logo) ── */}
+      <Modal
+        visible={serverModalVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setServerModalVisible(false)}
+      >
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          style={styles.modalOverlay}
+        >
+          <View style={[styles.modalCard, { backgroundColor: colors.backgroundElement, borderColor: colors.border }]}>
+            <View style={styles.modalHeader}>
+              <MaterialCommunityIcons name="server-network" size={24} color={colors.primary} />
+              <Text style={[styles.modalTitle, { color: colors.text }]}>Server API Switcher</Text>
+            </View>
+
+            <Text style={[styles.modalSubtitle, { color: colors.textSecondary }]}>
+              Thay đổi địa chỉ Backend để kết nối tới ngrok, máy LAN hoặc server cloud mà không cần build lại APK.
+            </Text>
+
+            <View style={[styles.activeUrlBox, { backgroundColor: colors.background, borderColor: colors.border }]}>
+              <Text style={[styles.activeUrlLabel, { color: colors.textSecondary }]}>URL đang dùng:</Text>
+              <Text style={[styles.activeUrlText, { color: colors.primary }]} numberOfLines={1} ellipsizeMode="middle">
+                {currentApiUrl}
+              </Text>
+            </View>
+
+            <View style={styles.inputGroup}>
+              <Text style={[styles.label, { color: colors.text }]}>Nhập URL Backend mới:</Text>
+              <View style={[styles.inputWrapper, { borderColor: colors.border, backgroundColor: colors.background }]}>
+                <TextInput
+                  style={[styles.input, { color: colors.text }]}
+                  placeholder="https://...ngrok-free.dev"
+                  placeholderTextColor={colors.textSecondary}
+                  value={customUrlInput}
+                  onChangeText={setCustomUrlInput}
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                  keyboardType="url"
+                />
+                {customUrlInput ? (
+                  <TouchableOpacity onPress={() => setCustomUrlInput('')} style={styles.eyeButton}>
+                    <MaterialCommunityIcons name="close-circle" size={18} color={colors.textSecondary} />
+                  </TouchableOpacity>
+                ) : null}
+              </View>
+            </View>
+
+            {/* Quick preset buttons */}
+            <View style={styles.quickPresetRow}>
+              <TouchableOpacity
+                style={[styles.quickPresetBtn, { borderColor: colors.border, backgroundColor: colors.background }]}
+                onPress={() => setCustomUrlInput('https://perfectly-detail-gory.ngrok-free.dev')}
+              >
+                <Text style={[styles.quickPresetText, { color: colors.accent }]}>⚡ Dán Ngrok</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.quickPresetBtn, { borderColor: colors.border, backgroundColor: colors.background }]}
+                onPress={() => setCustomUrlInput(DEFAULT_API_BASE_URL)}
+              >
+                <Text style={[styles.quickPresetText, { color: colors.textSecondary }]}>☁️ Mặc định Railway</Text>
+              </TouchableOpacity>
+            </View>
+
+            {/* Action buttons */}
+            <View style={styles.modalActionRow}>
+              <TouchableOpacity
+                style={[styles.modalBtn, styles.cancelBtn, { borderColor: colors.border }]}
+                onPress={() => setServerModalVisible(false)}
+              >
+                <Text style={[styles.cancelBtnText, { color: colors.textSecondary }]}>Hủy</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[styles.modalBtn, styles.saveBtn, { backgroundColor: colors.primary }]}
+                onPress={handleSaveCustomUrl}
+              >
+                <Text style={styles.saveBtnText}>Lưu & Áp dụng</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
     </View>
   );
 }
@@ -408,5 +557,102 @@ const styles = StyleSheet.create({
     fontSize: 9.5,
     fontWeight: '700',
     letterSpacing: 1.5,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.65)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  modalCard: {
+    width: '100%',
+    maxWidth: 420,
+    borderRadius: 20,
+    borderWidth: 1,
+    padding: 24,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.35,
+    shadowRadius: 20,
+    elevation: 10,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    marginBottom: 8,
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: '800',
+    letterSpacing: -0.3,
+  },
+  modalSubtitle: {
+    fontSize: 12.5,
+    lineHeight: 18,
+    marginBottom: 16,
+  },
+  activeUrlBox: {
+    padding: 12,
+    borderRadius: 10,
+    borderWidth: 1,
+    marginBottom: 16,
+  },
+  activeUrlLabel: {
+    fontSize: 11,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+    letterSpacing: 0.8,
+    marginBottom: 4,
+  },
+  activeUrlText: {
+    fontSize: 13,
+    fontWeight: '700',
+    fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
+  },
+  quickPresetRow: {
+    flexDirection: 'row',
+    gap: 8,
+    marginBottom: 20,
+  },
+  quickPresetBtn: {
+    flex: 1,
+    borderWidth: 1,
+    borderRadius: 8,
+    paddingVertical: 8,
+    paddingHorizontal: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  quickPresetText: {
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  modalActionRow: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  modalBtn: {
+    flex: 1,
+    height: 44,
+    borderRadius: 10,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  cancelBtn: {
+    borderWidth: 1,
+  },
+  cancelBtnText: {
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  saveBtn: {
+    elevation: 2,
+  },
+  saveBtnText: {
+    color: '#ffffff',
+    fontSize: 14,
+    fontWeight: '700',
   },
 });
