@@ -6,6 +6,7 @@ import {
   Image,
   Modal,
   PanResponder,
+  Platform,
   ScrollView,
   StyleSheet,
   Text,
@@ -228,7 +229,7 @@ export default function JudgeScoreTab({
 
   const finalTime = useMemo(() => {
     if (penalty === 'DNF') return 'DNF';
-    const parsed = parseFloat(stackmat);
+    const parsed = parseFloat(String(stackmat || '0').replace(/,/g, '.'));
     if (isNaN(parsed) || parsed <= 0) return '0.00s';
     return `${(penalty === '+2' ? parsed + 2 : parsed).toFixed(2)}s`;
   }, [penalty, stackmat]);
@@ -236,14 +237,16 @@ export default function JudgeScoreTab({
   const medleyResult = useMemo(() => {
     if (medleySolves.some((solve: any) => solve.penalty === 'DNF')) return 'DNF';
     const total = medleySolves.reduce((sum: number, solve: any) => {
-      const parsed = parseFloat(solve.time || '0');
+      const parsed = parseFloat(String(solve.time || '0').replace(/,/g, '.'));
       return sum + (isNaN(parsed) ? 0 : parsed + (solve.penalty === '+2' ? 2 : 0));
     }, 0);
     return `${total.toFixed(2)}s`;
   }, [medleySolves]);
 
   const isFormValid = useMemo(() => {
-    const timeOk = (stackmat.trim() && !isNaN(parseFloat(stackmat)) && parseFloat(stackmat) > 0) || penalty === 'DNF';
+    const clean = String(stackmat || '').replace(/,/g, '.').trim();
+    const parsed = parseFloat(clean);
+    const timeOk = (clean.length > 0 && !isNaN(parsed) && parsed > 0) || penalty === 'DNF';
     const signOk = drawingPoints.length > 0 || signName.trim().length > 0;
     return timeOk && signOk;
   }, [drawingPoints, penalty, signName, stackmat]);
@@ -456,11 +459,18 @@ export default function JudgeScoreTab({
           </Text>
           <TextInput
             style={[styles.timeInput, { color: colors.text, borderColor: colors.border, backgroundColor: colors.background }]}
-            keyboardType="numeric"
+            keyboardType={Platform.OS === 'ios' ? 'decimal-pad' : 'numeric'}
             placeholder="0.00"
             placeholderTextColor={colors.textSecondary}
             value={stackmat}
-            onChangeText={value => { if (!value.includes('-')) setStackmat(value); }}
+            onChangeText={value => {
+              if (!value.includes('-')) {
+                const normalized = value.replace(/,/g, '.');
+                const parts = normalized.split('.');
+                const sanitized = parts.length > 2 ? `${parts[0]}.${parts.slice(1).join('')}` : normalized;
+                setStackmat(sanitized);
+              }
+            }}
           />
           <Text style={[styles.fieldLabel, { color: colors.text, marginTop: 12 }]}>WCA Penalty</Text>
           <View style={styles.penaltyRow}>

@@ -930,10 +930,13 @@ export function useJudgeScoring(
       const competitor = getStationQueue().find(item => item.groupCompetitorId === groupCompetitorId);
       const laneConfig = getLaneConfig();
 
+      const cleanTimeStr = String(stackmat || '0').replace(/,/g, '.');
+      const parsedTimeSec = parseFloat(cleanTimeStr);
+
       if (formatType === 'MEDLEY') {
         const activeEv = getActiveEvent();
         const subPuzzles = activeEv?.medleyPuzzles && activeEv.medleyPuzzles.length > 0 ? activeEv.medleyPuzzles : medleySolves;
-        const rawTimeMs = penalty === 'DNF' ? 0 : Math.round(parseFloat(stackmat || '0') * 1000);
+        const rawTimeMs = penalty === 'DNF' ? 0 : Math.round((isNaN(parsedTimeSec) ? 0 : parsedTimeSec) * 1000);
         const penaltyCode = penalty === '+2' ? 'PLUS_2' : penalty === 'DNF' ? 'DNF' : 'OK';
         const matchedPenalty = penaltyTypes.find((item: any) => item.code === penaltyCode);
 
@@ -956,7 +959,7 @@ export function useJudgeScoring(
       } else {
         const penaltyCode = penalty === '+2' ? 'PLUS_2' : penalty === 'DNF' ? 'DNF' : 'OK';
         const matchedPenalty = penaltyTypes.find((item: any) => item.code === penaltyCode);
-        const rawTimeMs = penalty === 'DNF' ? 0 : Math.round(parseFloat(stackmat) * 1000);
+        const rawTimeMs = penalty === 'DNF' ? 0 : Math.round((isNaN(parsedTimeSec) ? 0 : parsedTimeSec) * 1000);
 
         if (!currentScramble.scrambleId) {
           throw new Error('Scramble reference missing.');
@@ -980,7 +983,7 @@ export function useJudgeScoring(
         groupName: competitor?.groupName || '',
         stationNumber: laneConfig?.stationNumber || 0,
         solveNumber: activeSolveNumber,
-        finalTimeMs: formatType === 'MEDLEY' ? null : Math.round((parseFloat(stackmat || '0') || 0) * 1000),
+        finalTimeMs: formatType === 'MEDLEY' ? null : Math.round((isNaN(parsedTimeSec) ? 0 : parsedTimeSec) * 1000),
         isDnf: penalty === 'DNF',
         submittedAt: new Date().toISOString(),
         evidencePhotoUrl: evidencePhotos.length > 0 ? evidencePhotos[0] : null,
